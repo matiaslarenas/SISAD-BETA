@@ -1,0 +1,16 @@
+export const inventoryCategories = [
+    "Proteínas",
+    "Pescados y Mariscos",
+    "Lácteos",
+    "Verduras",
+    "Frutas",
+    "Abarrotes",
+    "Condimentos",
+    "Salsas",
+    "Cafetería",
+    "Congelados",
+    "Panadería y Repostería",
+    "Bebestibles",
+    "Limpieza",
+    "Desechables",
+];

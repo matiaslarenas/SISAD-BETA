@@ -1,0 +1,28 @@
+{
+  "name": "restaurant-inventory-dashboard",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "lucide-react": "^1.41.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-is": "18.3.1",
+    "react-router-dom": "^7.18.3",
+    "recharts": "^3.10.1",
+    "sonner": "^2.0.8"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.10"
+  }
+}
