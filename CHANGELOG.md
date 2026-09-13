@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Servidor local** (`server/index.js`, `server/persistence.js`) — sin
+  dependencias externas (solo módulos nativos de Node). Corre en el
+  computador de escritorio del restaurante y es la única fuente de
+  verdad del estado; tablet y celulares se conectan por la red WiFi
+  local y comparten el mismo inventario/ventas en tiempo casi real
+  (polling cada ~2s). Ver `docs/GUIA_DE_DEPLOYMENT.md`.
+- `src/state/rootReducer.js` — reducer de acciones compartido entre
+  cliente y servidor (antes vivía solo dentro de `AppDataContext.jsx`).
+- Test de regresión en `tests/recipeCalculator.test.js` para conversión
+  cruzada de unidades masa↔volumen en `normalizeQuantity`.
+- `.claude/skills/` — tres skills de proyecto (`meson-arquitectura`,
+  `meson-reglas-negocio`, `meson-testing`) que indexan hacia `docs/`
+  para agilizar futuras sesiones de desarrollo.
+- Scripts de npm: `server`, `server:dev`, `start` (build + servidor en
+  un solo comando, uso real en el desktop).
+- `scripts/reset-to-empty.js` y `scripts/reset-quantities-and-history.js`
+  — utilidades de un solo uso para limpiar datos de demostración antes
+  de empezar a operar con datos reales (el segundo mantiene el catálogo
+  de productos/recetas/proveedores y solo vacía cantidades e historial).
+- `.claude/skills/meson-data-reset/` — quinto skill de proyecto, con el
+  alcance exacto de los scripts de reset y la lección aprendida de
+  confirmar explícitamente qué se mantiene y qué se borra antes de
+  correr cualquier operación destructiva sobre los datos.
+
+### Changed
+- `AppDataContext.jsx`: ya no mantiene el estado con `useReducer` +
+  `localStorage` local — consulta y despacha acciones contra el
+  servidor local (`/api/state`, `/api/dispatch`).
+- `vite.config.js`: proxy de `/api` hacia el servidor Node durante
+  desarrollo (`npm run dev` + `npm run server:dev`).
+- Nombre y ubicación del restaurante corregidos en los 6 documentos
+  conceptuales (`docs/*.md`): "El Mesón de Los Laureles", localidad de
+  Los Laureles, comuna de Cunco, Región de La Araucanía.
+- `docs/ARCHITECTURE.md`, `docs/GUIA_DE_DEPLOYMENT.md`,
+  `docs/GUIA_DE_DESARROLLO.md`, `docs/GUIA_DE_USUARIO.md`,
+  `docs/MODELO_DE_DATOS.md`, `docs/ESTRATEGIA_DE_PRUEBAS.md`:
+  actualizados para reflejar la arquitectura cliente-servidor.
+- `src/utils/storage.js`: marcado como no usado en producción (queda
+  como referencia histórica de la versión 100% client-side).
+
+### Fixed
+- **Costos de recetas gravemente inflados** (Limonada, Café Helado):
+  `normalizeQuantity` en `recipeCalculator.js` no convertía entre
+  familias de unidades distintas (masa↔volumen) cuando la receta y el
+  producto comprado usaban unidades de tipos diferentes (ej. Limón
+  Sutil comprado en `kg` pero medido en la receta en `ml`). Se agregó
+  una conversión de respaldo con densidad 1:1. Café Helado: de
+  $114.320 a $433,5. Limonada: de $152.044 a $196.
+- **Bug de rutas en Windows** (`server/persistence.js`): construir
+  rutas de archivo con `new URL(...).pathname` directamente producía
+  rutas corruptas en Windows (`C:\C:\Users\...`). Corregido usando
+  `fileURLToPath`.
+
+### Added
 - Conceptual documentation in `docs/`:
   - `MODELO_DE_DATOS.md` — entities, attributes, relationships, and derived data model
   - `REGLAS_DE_NEGOCIO.md` — business rules with concrete examples (stock calculation, recipe costing, POS, purchases, waste, alerts, KPIs)

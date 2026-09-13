@@ -1,4 +1,4 @@
-# Guía de Desarrollo — Sistema Restaurante Los Laureles
+# Guía de Desarrollo — Sistema Restaurante El Mesón de Los Laureles
 
 > Documento para desarrolladores que contribuyen al proyecto.
 
@@ -23,17 +23,25 @@ cd restaurant-inventory-dashboard
 # Instalar dependencias
 npm install
 
-# Iniciar servidor de desarrollo
-npm run dev
+# Desarrollo: dos terminales, frontend y servidor por separado
+npm run dev          # Terminal 1 — Vite (puerto 3000, recarga en caliente)
+npm run server:dev   # Terminal 2 — servidor Node (puerto 3001)
 ```
+
+`vite.config.js` tiene un proxy de `/api` hacia el puerto 3001, así el
+código de `AppDataContext.jsx` no necesita saber si está en desarrollo o
+producción — siempre usa rutas relativas.
 
 ### 1.3 Comandos Útiles
 
 | Comando | Descripción |
 |---|---|
-| `npm run dev` | Inicia el servidor de desarrollo (Vite) |
+| `npm run dev` | Inicia Vite en modo desarrollo (solo frontend) |
+| `npm run server:dev` | Inicia el servidor Node en el puerto 3001 (desarrollo) |
 | `npm run build` | Genera el build de producción |
-| `npm run preview` | Sirve el build de producción localmente |
+| `npm run server` | Sirve el build ya generado + la API (un solo puerto) |
+| `npm start` | `build` + `server` en un solo comando — uso real en el desktop |
+| `npm run preview` | Sirve el build de producción localmente (solo frontend, sin API) |
 | `npm test` | Ejecuta la suite de pruebas (node --test) |
 | `npm test -- --watch` | Ejecuta pruebas en modo observador |
 
@@ -42,12 +50,17 @@ npm run dev
 ### 2.1 Estructura de Carpetas
 
 ```
+server/
+├── index.js        # Servidor HTTP nativo: sirve dist/ + API
+├── persistence.js  # Persistencia en disco (server/data/app-state.json)
+└── data/           # Estado en vivo (no versionado)
 src/
 ├── components/     # Componentes reutilizables (presentación)
-├── context/        # AppDataContext.jsx (único Context)
+├── context/        # AppDataContext.jsx (único Context, habla con el servidor)
 ├── data/           # Datos semilla
 ├── pages/          # Pantallas por sección
-├── state/          # appState.js (lógica de dominio pura)
+├── state/          # appState.js (lógica de dominio pura) + rootReducer.js
+
 ├── types/          # Interfaces TypeScript
 ├── utils/          # Lógica pura (costeo, validación, storage)
 ├── App.jsx         # Layout raíz + rutas
@@ -123,7 +136,11 @@ export default function MyComponent() {
 
 ### 4.1 AppDataContext
 
-El único Context de la aplicación. Proporciona:
+El único Context de la aplicación. Desde la migración a servidor local,
+ya no mantiene el estado con `useReducer` local: lo obtiene del servidor
+vía `fetch`/polling y despacha acciones vía `POST /api/dispatch` (detalle
+completo en `docs/ARCHITECTURE.md` §3). Sigue exponiendo lo mismo al
+árbol de componentes:
 
 - **Datos derivados** (memoizados con `useMemo`):
   - `inventory` — snapshot de inventario
@@ -155,10 +172,13 @@ Núcleo de dominio. Todas las funciones son puras:
 
 ### 4.3 Persistencia
 
-- `src/utils/storage.js` maneja `localStorage`.
-- Estado versionado con `STORAGE_VERSION`.
-- Migraciones automáticas desde versiones anteriores.
-- SSR-safe: retorna `null` si `window` no existe.
+- `server/persistence.js` maneja la persistencia en disco del servidor
+  (`server/data/app-state.json`), con escritura atómica.
+- Reutiliza `normalizeLoadedState`/`createDefaultAppState` de
+  `appState.js` — mismas migraciones automáticas que la versión anterior
+  100% client-side.
+- `src/utils/storage.js` (localStorage) queda como referencia histórica,
+  **no lo usa la app en producción** desde la migración a servidor local.
 
 ## 5. Testing
 
@@ -232,13 +252,25 @@ describe("recordSale", () => {
 
 - **React DevTools**: inspeccionar el árbol de componentes y el Context.
 - **Console.log**: para debugging rápido (eliminar antes de commit).
-- **localStorage**: inspeccionar el estado en `Application → Local Storage`.
+- **Pestaña Network del navegador**: inspeccionar las llamadas a
+  `/api/state` (polling) y `/api/dispatch` (acciones) — es la forma más
+  directa de ver qué está mandando/recibiendo el cliente.
+- **Archivo de estado del servidor**: `server/data/app-state.json` — se
+  puede abrir directamente para ver el estado real y completo en
+  cualquier momento (el servidor debe estar detenido o hacerlo de
+  solo lectura para no pisar una escritura en curso).
 
 ### 7.2 Debugging de Estado
 
+```bash
+# Estado completo, directo desde el archivo del servidor
+cat server/data/app-state.json | python3 -m json.tool
+```
+
 ```js
-// En la consola del navegador
-JSON.parse(localStorage.getItem("reserve_app_state"))
+// En la consola del navegador — última respuesta que vio el cliente
+// (no lee el archivo directamente; refleja lo último que devolvió el servidor)
+await fetch("/api/state").then((r) => r.json())
 ```
 
 ### 7.3 Debugging de Tests

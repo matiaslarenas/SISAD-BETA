@@ -22,6 +22,7 @@ import Recipes from "./pages/Recipes";
 import Reports from "./pages/Reports";
 import Purchases from "./pages/Purchases";
 import POS from "./pages/POS";
+import { useAppData } from "./context/AppDataContext";
 
 const navigationItems = [
   { to: "/", label: "Resumen", icon: LayoutDashboard, end: true },
@@ -32,6 +33,24 @@ const navigationItems = [
   { to: "/reports", label: "Reportes", icon: BarChart3 },
   { to: "/purchases", label: "Compras", icon: ClipboardList },
 ];
+
+function AppReady({ children }) {
+  const { isLoading, connectionError } = useAppData();
+
+  if (isLoading) {
+    return (
+      <div className="app-loading-state">
+        <p>
+          {connectionError
+            ? "No se pudo conectar con el servidor local. Verifica que el computador de escritorio esté encendido y conectado a la misma red WiFi."
+            : "Conectando con el servidor local…"}
+        </p>
+      </div>
+    );
+  }
+
+  return children;
+}
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -118,7 +137,8 @@ function App() {
                 <Menu size={24} strokeWidth={2} />
               </button>
               <Toaster position="top-right" richColors closeButton />
-              <Routes>
+              <AppReady>
+                <Routes>
           <Route path="/" element={<Overview />} />
           <Route path="/pos" element={<POS />} />
           <Route path="/inventory" element={<Inventory />} />
@@ -127,6 +147,7 @@ function App() {
           <Route path="/reports" element={<Reports />} />
           <Route path="/purchases" element={<Purchases />} />
         </Routes>
+              </AppReady>
       </main>
     </div>
   );

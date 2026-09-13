@@ -4,10 +4,11 @@ import { BrowserRouter } from 'react-router-dom';
 
 import App from './App';
 import { AppDataProvider } from './context/AppDataContext';
-import { seedData } from './utils/storage';
 import './styles.css';
 
-seedData();
+// El estado ya no vive en localStorage de cada dispositivo: lo sirve el
+// servidor local (server/index.js) corriendo en el computador de
+// escritorio. AppDataProvider lo consulta al montar. Ver docs/GUIA_DE_DEPLOYMENT.md.
 
 ReactDOM.createRoot(
   document.getElementById('root')

@@ -1,4 +1,4 @@
-# Arquitectura — Sistema Restaurante Los Laureles
+# Arquitectura — Sistema Restaurante El Mesón de Los Laureles
 
 > Documento técnico de referencia para desarrolladores y agentes de código.
 > Complementa a `PROMPT_CHATBOT.md` (documentación funcional orientada a IA
@@ -6,8 +6,15 @@
 
 ## 1. Visión general
 
-SPA de React construida con Vite para la gestión operacional de un
-restaurante familiar (Los Laureles, Cunco, Chile). Cubre el ciclo completo:
+Aplicación cliente-servidor: un frontend React (Vite) que corre en el
+navegador de cada dispositivo (desktop, tablet, celulares), y un servidor
+Node.js (`server/index.js`, sin dependencias externas) que corre en el
+computador de escritorio del restaurante y es la única fuente de verdad
+del estado. Los demás dispositivos se conectan a ese servidor por la red
+WiFi local — ver `docs/GUIA_DE_DEPLOYMENT.md` para el detalle de
+despliegue. Cubre el ciclo completo para
+El Mesón de Los Laureles, localidad de Los Laureles, comuna de Cunco,
+Región de La Araucanía:
 
 ```
 Proveedor
@@ -48,8 +55,9 @@ pasó".
 | UI | React 18 (function components + hooks) |
 | Build | Vite 5 |
 | Ruteo | react-router-dom v7 |
-| Estado global | React Context + `useReducer` (sin Redux/Zustand) |
-| Persistencia | `localStorage` (versionado, con export/import JSON) |
+| Estado global (cliente) | React Context + `fetch`/polling contra el servidor (sin Redux/Zustand) |
+| Servidor | Node.js con módulos nativos (`http`, `fs`) — **sin dependencias externas** (ver §3.1) |
+| Persistencia | Archivo JSON en disco del servidor (`server/data/app-state.json`), escritura atómica |
 | Gráficos | Recharts |
 | Notificaciones UI | Sonner (toast) |
 | Iconografía | lucide-react |
@@ -58,49 +66,113 @@ pasó".
 
 Comandos:
 ```
-npm run dev      # servidor de desarrollo
-npm run build    # build de producción (vite build)
-npm run preview  # sirve el build de producción
-npm test         # corre toda la suite (node --test)
+npm run dev        # servidor de desarrollo Vite (frontend, puerto 3000)
+npm run server:dev # servidor Node en paralelo para desarrollo (puerto 3001)
+npm run build      # build de producción (vite build)
+npm start          # build + servidor Node sirviendo todo en un solo puerto (uso real)
+npm run preview    # sirve el build de producción (solo frontend, sin API)
+npm test           # corre toda la suite (node --test)
 ```
 
 ## 3. Estado global
 
 ```
-localStorage
-    ↓ loadAppState()
-storage.js
+server/data/app-state.json (disco del servidor)
+    ↓ loadState()
+server/persistence.js
     ↓
-AppDataContext.jsx  (React Context, useReducer)
-    ↓ dispatch(action) → appDataReducer
-appState.js         (núcleo de dominio: reducers puros)
+server/index.js  (HTTP nativo: GET /api/state, POST /api/dispatch)
+    ↓ aplica action
+src/state/rootReducer.js  (appDataReducer — mismo reducer que antes usaba el Context)
+    ↓ delega a
+src/state/appState.js         (núcleo de dominio: reducers puros, sin cambios)
     ↓ usa
 recipeCalculator.js (costeo, unidades, sub-recetas)
 validation.js       (reglas de validación de formularios y backups)
+
+── red WiFi local ──
+
+src/context/AppDataContext.jsx  (React Context, en cada dispositivo)
+    ↓ fetch() + polling cada 2s a /api/state
+    ↓ dispatch(action) → POST /api/dispatch
 ```
 
+### 3.1 Por qué servidor sin dependencias externas
+
+`server/index.js` usa solo módulos nativos de Node (`http`, `fs`,
+`crypto`) — nada de `express`, `ws`, ni ninguna librería de terceros.
+Decisión deliberada: el restaurante no siempre tiene acceso a internet
+en el desktop para hacer `npm install` de dependencias nuevas, y esto
+elimina el riesgo de que una actualización de una librería externa rompa
+el servidor. La sincronización entre dispositivos usa **polling** cada
+~2 segundos en vez de WebSockets, por el mismo motivo (implementar un
+servidor WebSocket a mano sin la librería `ws` es frágil). Si en el
+futuro se dispone de acceso a internet de forma confiable y se quiere
+latencia menor a los 2 segundos, se puede agregar `ws` y reemplazar el
+polling por push en tiempo real sin tocar la lógica de negocio (todo el
+dominio ya vive en funciones puras independientes del transporte).
+
+### `src/state/rootReducer.js`
+Extraído de lo que antes era el switch de acciones dentro de
+`AppDataContext.jsx`. Es el único punto que traduce `{ type, payload }`
+a una llamada a `appState.js`, y lo importan **tanto el servidor como el
+cliente** — el servidor lo usa para aplicar acciones y persistir; en el
+cliente ya no se usa para mutar estado local (eso ahora lo hace el
+servidor), pero se mantiene como referencia de qué acciones existen.
+
+### `server/index.js`
+Servidor HTTP nativo. Responsabilidades:
+- Sirve el build de producción (`dist/`) con fallback de SPA (cualquier
+  ruta de cliente sirve `index.html`, para que funcione el ruteo de
+  `react-router-dom`).
+- `GET /api/state` → devuelve `{ revision, data: state }`. `revision` es
+  un contador en memoria que se incrementa en cada mutación, para que el
+  cliente pueda saber con una comparación barata si el estado cambió sin
+  tener que hacer diff profundo del JSON completo.
+- `POST /api/dispatch` → recibe una acción, la aplica vía
+  `appDataReducer`, persiste con `saveState()`, y devuelve el nuevo
+  estado + revisión.
+- Mantiene el estado en memoria (`let state`) para no leer el disco en
+  cada request; solo escribe a disco tras cada mutación.
+
+### `server/persistence.js`
+Equivalente de `src/utils/storage.js` pero sobre el sistema de archivos
+del servidor en vez de `localStorage`. Reutiliza
+`createDefaultAppState`/`normalizeLoadedState` de `appState.js` — mismo
+formato de estado y mismas migraciones que la versión anterior
+100% client-side. Escritura atómica (archivo temporal + rename) para que
+un corte de luz a mitad de escritura no corrompa `app-state.json`.
+
+> ⚠️ Al construir rutas de archivo con `import.meta.url`, usar siempre
+> `fileURLToPath()` antes de pasarlas a `path.join`/`fs`. Usar
+> `new URL(...).pathname` directamente rompe en Windows (produce rutas
+> del tipo `C:\C:\Users\...`) — bug real encontrado y corregido durante
+> la migración a servidor local.
+
 ### `src/context/AppDataContext.jsx`
-Único React Context de la aplicación. Responsabilidades:
-- Inicializa el estado con `loadAppState()` (lazy initializer de `useReducer`).
-- Persiste el estado completo en `localStorage` en cada cambio (`useEffect`).
-- Expone al árbol de componentes:
-  - Datos derivados memoizados: `inventory` (snapshot), `purchases`
-    (con montos y metadatos de estado), `recentMovements`, `alerts`,
-    `purchaseSuggestions`, `dailySnapshots`.
-  - Acciones (`dispatch` wrappers): `saveProduct`, `removeProduct`,
-    `addSupplier/updateSupplier/removeSupplier`, `addRecipe`,
-    `createPurchase`, `setPurchaseInTransit`, `receivePurchase`,
-    `recordSale`, `voidSale`, `recordWaste`, `restoreBackupState`.
-- **No contiene lógica de negocio.** Cada acción del reducer delega
-  inmediatamente a una función pura de `appState.js`. Esta disciplina
-  es la que previene que el Context se convierta en un "God Object": las
-  reglas de negocio viven en `appState.js`/`recipeCalculator.js`, el
-  Context solo orquesta.
+Único React Context de la aplicación, ahora en cada dispositivo cliente.
+Responsabilidades:
+- Al montar, hace `fetch("/api/state")` y luego repite cada 2 segundos
+  (`POLL_INTERVAL_MS`), comparando `revision` para evitar
+  `setState` innecesarios si nada cambió.
+- `dispatch(action)` ya no muta estado local: hace
+  `POST /api/dispatch` y aplica al estado local la respuesta del
+  servidor (que es la fuente de verdad).
+- Expone `isLoading` y `connectionError` para que la UI pueda mostrar un
+  estado de carga/reconexión mientras no hay contacto con el servidor
+  (ver `AppReady` en `App.jsx`).
+- Expone al árbol de componentes los mismos datos derivados memoizados
+  de siempre: `inventory` (snapshot), `purchases`, `recentMovements`,
+  `alerts`, `purchaseSuggestions`, `dailySnapshots` — se siguen
+  calculando en el cliente, a partir del estado que llega del servidor.
+- **Sigue sin contener lógica de negocio.** Solo transporta acciones al
+  servidor y datos derivados de vuelta a los componentes.
 
 ### `src/state/appState.js`
-Núcleo de dominio. Todas las funciones son puras: `(state, payload) => newState`.
-No hay mutación in-place; cada acción retorna un nuevo objeto de estado
-(spread de `state` + campos modificados). Contiene:
+Núcleo de dominio — **sin cambios** por la migración a servidor. Todas
+las funciones son puras: `(state, payload) => newState`. No hay mutación
+in-place; cada acción retorna un nuevo objeto de estado (spread de
+`state` + campos modificados). Contiene:
 
 - **Normalización**: `normalizeLoadedState`, `normalizeRecipe`,
   `normalizePurchase`, `normalizeSale`, etc. Convierte datos crudos
@@ -121,14 +193,17 @@ No hay mutación in-place; cada acción retorna un nuevo objeto de estado
 ### `src/utils/recipeCalculator.js`
 Motor de costeo y conversión de unidades. Sin dependencias de React ni
 del resto del dominio (solo recibe `inventory`/`recipes` como parámetros).
-Ver §6 para el detalle de sub-recetas.
+Ver §6 para el detalle de sub-recetas. `normalizeQuantity` soporta
+conversión cruzada masa↔volumen con fallback de densidad 1:1 (ver el
+caso de regresión de Limonada/Café Helado en
+`tests/recipeCalculator.test.js`) — no reintroducir ese bug si se toca
+esta función.
 
 ### `src/utils/storage.js`
-Adaptador de persistencia sobre `localStorage`. Maneja versionado
-(`STORAGE_VERSION`), migración desde claves legacy sueltas
-(`STORAGE_KEYS`) hacia un único blob de estado (`reserve_app_state`), y
-fallback a `createDefaultAppState()` si el storage está corrupto o
-ausente (SSR-safe: `getStorage()` retorna `null` si `window` no existe).
+**Ya no lo usa la aplicación en producción** (ver nota en el propio
+archivo). Reemplazado por `server/persistence.js`. Se mantiene como
+referencia histórica de la versión 100% client-side y por si hace falta
+migrar un backup muy antiguo.
 
 ### `src/utils/validation.js`
 Validadores de formularios (producto, proveedor, receta, ingrediente,
@@ -145,22 +220,30 @@ Excel en español.
 ## 4. Estructura de carpetas
 
 ```
+server/
+  index.js        Servidor HTTP nativo (sin dependencias externas):
+                   sirve dist/ + API (/api/state, /api/dispatch).
+  persistence.js  Persistencia en disco (server/data/app-state.json).
+  data/           Estado en vivo del servidor. No se versiona (.gitignore).
 src/
   components/     Componentes de presentación reutilizables (tablas, modales,
                    tarjetas de métricas, filtros). Sin lógica de negocio.
-  context/        AppDataContext.jsx — único Context de la app.
+  context/        AppDataContext.jsx — único Context de la app. Consulta
+                   al servidor vía fetch/polling (ver §3).
   data/           Datos semilla (catálogo, movimientos, recetas, compras,
-                   ventas, proveedores). Se usan solo si no hay estado
-                   previo en localStorage (createDefaultAppState).
+                   ventas, proveedores). Usados por createDefaultAppState()
+                   solo si el servidor arranca sin app-state.json previo.
   pages/          Una página por sección de navegación: Overview, Inventory,
                    Purchases, Recipes, POS, Reports, Suppliers.
-  state/          appState.js — dominio puro (ver §3).
-  utils/          recipeCalculator.js, validation.js, storage.js,
-                   exportUtils.js, format.js.
-  App.jsx         Layout raíz + rutas (react-router-dom).
+  state/          appState.js (dominio puro, ver §3) y rootReducer.js
+                   (compartido entre cliente y servidor).
+  utils/          recipeCalculator.js, validation.js, storage.js (legacy,
+                   no usado en producción), exportUtils.js, format.js.
+  App.jsx         Layout raíz + rutas (react-router-dom) + AppReady
+                   (pantalla de carga mientras conecta con el servidor).
   main.jsx        Bootstrap de React + AppDataProvider.
 tests/            Suite node:test, un archivo por área de dominio.
-docs/             Este documento.
+docs/             Este documento y los demás documentos conceptuales.
 ```
 
 ## 5. Flujo: Venta (POS → Inventario → Reportes)
@@ -341,3 +424,7 @@ prueba contra las funciones puras de `appState.js`/`recipeCalculator.js`.
 6. **No inventar datos no medidos.** Si falta información real (ej. una
    receta sin medir), el sistema debe reflejar `0`/`pending` en vez de
    una estimación arbitraria.
+7. **Toda acción nueva (`{ type, payload }`) se registra en
+   `src/state/rootReducer.js`**, no solo en el cliente. Si se agrega un
+   caso al switch sin agregarlo ahí, el servidor no sabrá aplicarlo y la
+   acción fallará silenciosamente para todos los dispositivos.

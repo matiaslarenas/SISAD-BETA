@@ -1,9 +1,14 @@
-# Modelo de Datos — Sistema Restaurante Los Laureles
+# Modelo de Datos — Sistema Restaurante El Mesón de Los Laureles
 
 > Referencia de las entidades, sus atributos y relaciones. El estado de la
-> aplicación se persiste en `localStorage` como un único objeto JSON
-> versionado (`reserve_app_state`), cargado por `src/utils/storage.js` y
-> expuesto a través de `AppDataContext`.
+> aplicación se persiste como un único objeto JSON versionado en
+> `server/data/app-state.json`, en el computador de escritorio que actúa
+> como servidor local (cargado por `server/persistence.js`), y cada
+> dispositivo lo consulta a través de `AppDataContext` vía la API del
+> servidor. El formato del objeto y sus campos no cambiaron con la
+> migración a servidor — solo cambió dónde vive físicamente el archivo
+> (antes `localStorage` de cada navegador, ahora un solo archivo en el
+> desktop).
 
 ## 1. Principio rector
 
@@ -251,6 +256,8 @@ El estado persistido incluye:
 }
 ```
 
-Las migraciones se manejan en `src/utils/storage.js` mediante
-`normalizeLoadedState`, que detecta versiones anteriores y aplica
-transformaciones necesarias.
+`normalizeLoadedState` vive en `src/state/appState.js` (dominio puro) y
+la invoca `server/persistence.js` al cargar el estado desde disco —
+detecta versiones anteriores y aplica las transformaciones necesarias.
+`src/utils/storage.js` la invocaba de la misma forma en la versión
+anterior 100% client-side; queda como referencia histórica.

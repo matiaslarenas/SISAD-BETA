@@ -18,6 +18,22 @@ test("normalizeQuantity converts units correctly", () => {
   assert.equal(normalizeQuantity(2, "kg", "kg"), 2);
 });
 
+test("normalizeQuantity converts across mass/volume families using a 1:1 density fallback", () => {
+  // Regression test: ingredients measured in the recipe with one unit
+  // family (mass or volume) but purchased/stocked in the other family
+  // must not be left unconverted — that previously caused wildly
+  // inflated costs (e.g. Café Helado, Limonada) by multiplying the raw
+  // recipe quantity directly against a cost expressed in a different unit.
+
+  // Crema de Leche: recipe measures 30 gr, but product is stocked per "lt".
+  assert.equal(normalizeQuantity(30, "gr", "lt"), 0.03);
+  // Limón Sutil: recipe measures 80 ml, but product is stocked per "kg".
+  assert.equal(normalizeQuantity(80, "ml", "kg"), 0.08);
+  // Inverse directions should also resolve to their base unit equivalent.
+  assert.equal(normalizeQuantity(0.5, "lt", "gr"), 500);
+  assert.equal(normalizeQuantity(0.5, "kg", "ml"), 500);
+});
+
 test("normalizeQuantity converts grams to purchase units using avgUnitWeightGr", () => {
   // 50 gr of a product purchased per unit (avg 180 gr/unit) should
   // become a fraction of a unit, not be treated as raw grams.

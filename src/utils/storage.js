@@ -1,3 +1,9 @@
+// NOTA: desde la migración a servidor local (ver server/index.js y
+// server/persistence.js), la app ya NO usa este archivo para cargar o
+// guardar el estado — el navegador consulta al servidor vía /api/state y
+// /api/dispatch. Este archivo queda como referencia histórica de la
+// versión 100% client-side; se puede eliminar cuando ya no se necesite
+// para migrar backups antiguos.
 import {
   createDefaultAppState,
   normalizeLoadedState,

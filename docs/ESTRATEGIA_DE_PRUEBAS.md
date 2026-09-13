@@ -1,4 +1,4 @@
-# Estrategia de Pruebas — Sistema Restaurante Los Laureles
+# Estrategia de Pruebas — Sistema Restaurante El Mesón de Los Laureles
 
 > Documento de referencia para la estrategia de testing del proyecto.
 
@@ -161,7 +161,14 @@ Pruebas matemáticas que certifican invariantes del sistema:
 ### 4.2 Qué NO está cubierto
 
 - **Interfaz de usuario**: clicks, navegación, renderizado visual.
-- **Integración con localStorage**: persistencia y migración.
+- **Servidor HTTP** (`server/index.js`): las rutas `/api/state` y
+  `/api/dispatch` se prueban manualmente (con `curl` o desde el
+  navegador), no hay tests automáticos de la capa HTTP todavía.
+- **Sincronización multi-dispositivo**: el comportamiento real de
+  polling entre desktop/tablet/celular se valida manualmente, no con
+  tests automáticos.
+- **Persistencia en disco** (`server/persistence.js`): escritura
+  atómica y migración de `app-state.json`.
 - **Responsive design**: comportamiento en móviles/tablets.
 - **Performance**: tiempos de renderizado.
 - **Accesibilidad**: ARIA, navegación con teclado.

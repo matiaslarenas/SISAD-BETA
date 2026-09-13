@@ -1,3 +1,8 @@
 node_modules
 dist
 .dyad/
+
+# Estado en vivo del servidor local (server/index.js). Cada instalación
+# real (el computador de escritorio del restaurante) genera el suyo — no
+# se versiona.
+server/data/

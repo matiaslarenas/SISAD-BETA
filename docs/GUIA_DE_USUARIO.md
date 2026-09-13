@@ -1,4 +1,4 @@
-# Guía de Usuario — Sistema Restaurante Los Laureles
+# Guía de Usuario — Sistema Restaurante El Mesón de Los Laureles
 
 > Manual práctico para el personal del restaurante. Esta guía asume que
 > ya has iniciado sesión en el sistema.
@@ -7,9 +7,21 @@
 
 ### 1.1 Acceso al Sistema
 
-1. Abre el navegador en la PC, tablet o smartphone.
-2. Navega a la URL del sistema (proporcionada por el administrador).
-3. El sistema carga automáticamente con los datos del último cierre.
+El sistema corre en el computador de escritorio del local. Para que
+funcione, **ese computador debe estar encendido y conectado a la red
+WiFi** del restaurante — es el que guarda toda la información.
+
+- **En el propio computador de escritorio**: abre el navegador en
+  `http://localhost:3000` (o la dirección que indique el administrador).
+- **En la tablet o el celular**: conéctate a la misma red WiFi y abre el
+  navegador en `http://<IP-del-computador>:3000` (el administrador te
+  da esta dirección — no cambia salvo que se reconfigure la red).
+- El sistema carga automáticamente con los datos actuales. Si tarda unos
+  segundos en aparecer o dice "Conectando con el servidor local…", es
+  normal mientras se establece la conexión.
+- Los cambios que hagas (una venta, un ajuste de stock) se reflejan en
+  los demás dispositivos en un par de segundos — no es instantáneo, pero
+  es automático.
 
 ### 1.2 Navegación
 
@@ -252,11 +264,20 @@ muestra como costo por unidad de rendimiento (ej. $/un, $/ml).
 
 ## 10. Solución de Problemas Comunes
 
-### 10.1 El sistema no carga
+### 10.1 El sistema no carga (o dice "Conectando con el servidor local…")
 
+- Verifica que el **computador de escritorio esté encendido** y no esté
+  en modo de suspensión/reposo — es el que sirve el sistema a los demás
+  dispositivos.
+- Verifica que tu dispositivo (tablet/celular) esté conectado a la
+  **misma red WiFi** que el computador de escritorio.
+- Verifica que estés entrando a la dirección correcta
+  (`http://<IP-del-computador>:3000` — pregúntale al administrador si no
+  la tienes).
 - Verifica que el navegador esté actualizado (Chrome, Firefox, Edge).
 - Refresca la página (Ctrl+F5 o desliza hacia abajo en móvil).
-- Si persiste, contacta al administrador.
+- Si persiste, contacta al administrador — puede ser un tema de Firewall
+  del computador de escritorio bloqueando la conexión.
 
 ### 10.2 Una receta no aparece en POS
 
@@ -266,9 +287,13 @@ muestra como costo por unidad de rendimiento (ej. $/un, $/ml).
 
 ### 10.3 El stock no se actualiza después de una venta
 
+- Espera unos segundos: si la venta se hizo en **otro dispositivo**, la
+  sincronización toma hasta 2 segundos en reflejarse.
 - Refresca la página.
 - Verifica en **Inventario** → historial de movimientos.
-- Si el movimiento no aparece, la venta no se registró correctamente.
+- Si el movimiento no aparece después de un rato, revisa que ambos
+  dispositivos tengan conexión con el servidor (ver §10.1); si no, la
+  venta no llegó a registrarse.
 
 ### 10.4 No puedo anular una venta
 

@@ -1,272 +1,229 @@
-# Guía de Deployment — Sistema Restaurante Los Laureles
+# Guía de Deployment — Sistema Restaurante El Mesón de Los Laureles
 
 > Documento de referencia para construir, desplegar y mantener el sistema
 > en producción.
 
 ## 1. Arquitectura de Deployment
 
-El sistema es una **SPA (Single Page Application)** estática construida con
-Vite. No requiere servidor backend — toda la lógica y persistencia se
-ejecutan en el navegador del cliente mediante `localStorage`.
+El sistema corre como un **servidor local en el computador de escritorio**
+del restaurante. La tablet y los celulares se conectan a ese servidor por
+la red WiFi local — no requiere internet ni ningún servicio en la nube.
 
 ```
-Cliente (navegador)
-    ↓
-Archivos estáticos (HTML, CSS, JS)
-    ↓
-localStorage (persistencia local)
+Computador de escritorio (host)
+    ↓ npm start
+Servidor Node.js (server/index.js)
+    ├── Sirve el build de producción (dist/) a cualquier dispositivo
+    │     que entre a http://<IP-del-desktop>:3000
+    ├── API JSON (/api/state, /api/dispatch)
+    └── Persiste el estado en server/data/app-state.json (disco local)
+         ↑
+Tablet / Celulares (clientes, misma red WiFi)
+    → abren esa misma URL en el navegador
+    → consultan y modifican el mismo estado del desktop
 ```
 
 ### 1.1 Implicaciones
 
-- **Sin backend**: no hay API, base de datos ni autenticación en el servidor.
-- **Persistencia local**: los datos se guardan en el navegador del cliente.
-- **Offline-first**: el sistema funciona sin conexión a internet.
-- **Multi-dispositivo**: cada dispositivo tiene su propio estado local.
+- **Un solo servidor, una sola fuente de verdad**: el desktop es quien
+  manda. Tablet y celulares son clientes que leen y escriben contra él.
+- **Sin dependencia de internet**: todo corre dentro de la red WiFi local.
+  Si se corta el internet del local pero el WiFi local sigue funcionando,
+  el sistema sigue operando con normalidad.
+- **El desktop debe estar encendido y conectado a la red** mientras se
+  quiera operar desde tablet o celular. Si el desktop se apaga o pierde
+  la red, esos dispositivos no pueden seguir trabajando hasta que vuelva.
+- **Sincronización casi en tiempo real**: los dispositivos consultan al
+  servidor cada ~2 segundos (polling), así que un cambio hecho en un
+  dispositivo tarda hasta 2 segundos en reflejarse en los demás.
 
-> ⚠️ **Importante**: Si se necesita sincronización entre dispositivos o
-> backup en la nube, se requiere un backend adicional (fuera del alcance
-> actual del sistema).
+> Nota histórica: la primera versión del sistema era una SPA 100%
+> client-side con `localStorage` por dispositivo (sin backend). Se migró
+> a este modelo de servidor local porque el negocio necesita que desktop,
+> tablet y celulares compartan el mismo inventario y las mismas ventas en
+> tiempo real — con solo `localStorage` cada dispositivo tenía su propio
+> estado, sin sincronizar entre sí.
 
-## 2. Build de Producción
+## 2. Instalación y Primer Arranque
 
-### 2.1 Comando
+### 2.1 Requisitos
+
+- Node.js 20.x o superior instalado en el computador de escritorio.
+- El desktop y todos los dispositivos (tablet, celulares) conectados a la
+  **misma red WiFi**.
+
+### 2.2 Instalación
+
+```bash
+npm install
+```
+
+### 2.3 Arranque en producción (uso diario del restaurante)
+
+```bash
+npm start
+```
+
+Este comando: construye el build de producción (`vite build`) y luego
+levanta el servidor (`server/index.js`) que sirve ese build junto con la
+API, todo en un solo proceso y un solo puerto (por defecto, `3000`).
+
+Al arrancar, la consola muestra algo así:
+
+```
+El Mesón de Los Laureles — servidor local
+Escuchando en el puerto 3000.
+Desde este mismo computador: http://localhost:3000
+Desde la tablet o celular (misma red WiFi): http://<IP-de-este-computador>:3000
+```
+
+### 2.4 Encontrar la IP del desktop
+
+- **Windows**: abrir `cmd` y escribir `ipconfig` → buscar "Dirección
+  IPv4" (ej. `192.168.1.23`).
+- **macOS/Linux**: `ifconfig` o `ip addr` → buscar la interfaz WiFi.
+
+Desde la tablet o el celular, entrar en el navegador a
+`http://<esa-IP>:3000`.
+
+### 2.5 Firewall
+
+La primera vez que se corre el servidor, el sistema operativo puede pedir
+permiso para aceptar conexiones entrantes (Firewall de Windows u
+equivalente). Hay que **aceptar/permitir el acceso** o los demás
+dispositivos no podrán conectarse. Si la tablet/celular no logran cargar
+la página, este es el primer punto a revisar.
+
+## 3. Build de Producción (paso interno de `npm start`)
+
+Si se necesita solo construir sin levantar el servidor:
 
 ```bash
 npm run build
 ```
 
-### 2.2 Salida
+Genera `dist/` (HTML, CSS, JS minificados y con hash para cache
+busting). `server/index.js` sirve ese contenido directamente — no hace
+falta subirlo a ningún hosting externo.
 
-El build genera archivos en `dist/`:
+## 4. Desarrollo local (para quien programa, no para el uso diario)
 
-```
-dist/
-├── index.html
-├── assets/
-│   ├── index-[hash].js
-│   ├── index-[hash].css
-│   └── ...
-└── ...
-```
-
-### 2.3 Optimizaciones
-
-- **Code splitting**: Vite divide el código automáticamente.
-- **Minificación**: CSS y JS se minifican.
-- **Hashing**: los archivos tienen hash para cache busting.
-- **Compresión**: se recomienda servir con gzip o brotli.
-
-### 2.4 Verificación del Build
+Durante el desarrollo conviene correr Vite (con recarga en caliente) y el
+servidor por separado, en dos terminales:
 
 ```bash
-# Construir
-npm run build
+# Terminal 1
+npm run dev          # Vite en el puerto 3000, con recarga en caliente
 
-# Servir localmente para verificar
-npm run preview
+# Terminal 2
+npm run server:dev   # servidor Node en el puerto 3001
 ```
 
-## 3. Opciones de Hosting
+`vite.config.js` ya tiene configurado un proxy de `/api` hacia el puerto
+3001, así que el código del frontend (`AppDataContext.jsx`) es idéntico
+en desarrollo y en producción — solo usa rutas relativas (`/api/...`).
 
-### 3.1 Hosting Estático (Recomendado)
+## 5. Persistencia y Backups
 
-El sistema puede desplegarse en cualquier proveedor de hosting estático:
+### 5.1 Dónde vive el estado
 
-| Proveedor | Ventajas | Consideraciones |
-|---|---|---|
-| **Vercel** | Deploy automático desde Git, preview URLs | Integración Git nativa |
-| **Netlify** | Deploy automático, form handling | Integración Git nativa |
-| **GitHub Pages** | Gratuito, fácil de configurar | Requiere configuración de routing |
-| **Cloudflare Pages** | CDN global, rápido | Integración Git nativa |
-| **Firebase Hosting** | CDN global, fácil | Requiere cuenta de Google |
-| **Servidor propio** | Control total | Requiere configuración manual |
+El estado completo del sistema (productos, movimientos, recetas, ventas,
+compras, proveedores) se guarda en:
 
-### 3.2 Configuración para GitHub Pages
-
-Si usas GitHub Pages, configura `vite.config.js`:
-
-```js
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-
-export default defineConfig({
-  base: "/nombre-del-repositorio/", // Cambiar al nombre de tu repo
-  plugins: [react()],
-});
+```
+server/data/app-state.json
 ```
 
-### 3.3 Configuración para Servidor Propio
+en el computador de escritorio. Esta carpeta **no se sube al control de
+versiones** (está en `.gitignore`) — es el dato real y en vivo del
+restaurante, distinto en cada instalación.
 
-```nginx
-# Ejemplo de configuración de Nginx
-server {
-    listen 80;
-    server_name restaurante-loslaureles.cl;
+La escritura es atómica (se escribe primero a un archivo temporal y
+recién después se reemplaza el archivo real), para que un corte de luz a
+mitad de una escritura no corrompa el archivo.
 
-    root /var/www/restaurante/dist;
-    index index.html;
+### 5.2 Backup manual (recomendado, además de lo anterior)
 
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
+1. Desde el Panel, clic en **Respaldar Datos** → descarga un JSON con
+   todo el estado.
+2. Recomendación: hacerlo al final de cada día, y guardar esa copia fuera
+   del propio desktop (pendrive, nube personal, etc.) por si el disco del
+   equipo falla.
 
-    # Compresión
-    gzip on;
-    gzip_types text/css application/javascript;
-}
-```
+### 5.3 Restauración
 
-## 4. Configuración de Dominio
+1. Panel → **Restaurar Backup** → seleccionar el archivo JSON.
+2. Confirmar. Esto reemplaza el estado actual del servidor (y por lo
+   tanto lo que ven todos los dispositivos conectados).
 
-### 4.1 Dominio Personalizado
+> ⚠️ La restauración reemplaza todos los datos actuales para **todos los
+> dispositivos conectados**, no solo el que la ejecuta.
 
-1. Compra un dominio (ej. `restaurante-loslaureles.cl`).
-2. Configura los DNS apuntando al hosting.
-3. Habilita HTTPS (la mayoría de proveedores lo hacen automáticamente).
+## 6. Actualizaciones del sistema
 
-### 4.2 HTTPS
+1. **Backup de datos** desde el Panel.
+2. Detener el servidor (`Ctrl+C` en la consola donde corre).
+3. Reemplazar los archivos del proyecto por la nueva versión (sin tocar
+   `server/data/`, que no se versiona).
+4. `npm install` (por si hay dependencias nuevas).
+5. `npm start` de nuevo.
+6. Verificar que las páginas cargan y que un dispositivo de prueba
+   (tablet/celular) puede conectarse.
 
-**Obligatorio**: El sistema usa `localStorage` y APIs modernas que requieren
-HTTPS en producción. La mayoría de proveedores de hosting ofrecen HTTPS
-gratuito con Let's Encrypt.
-
-## 5. Actualizaciones
-
-### 5.1 Proceso de Actualización
-
-1. **Haz backup de datos**: Desde el Panel, haz clic en **Respaldar Datos**.
-2. **Despliega la nueva versión**: Push a la rama principal o sube el build.
-3. **Verifica**: Accede al sistema y comprueba que todo funciona.
-4. **Comunica**: Informa al personal sobre cambios importantes.
-
-### 5.2 Estrategia de Versionamiento
-
-- Usar **versionamiento semántico** (SemVer): `MAJOR.MINOR.PATCH`.
-- **MAJOR**: cambios que rompen compatibilidad.
-- **MINOR**: nuevas funcionalidades (backward compatible).
-- **PATCH**: correcciones de bugs.
-
-### 5.3 Migración de Datos
-
-El sistema incluye migraciones automáticas en `src/utils/storage.js`:
-
-- `STORAGE_VERSION` controla la versión del estado.
-- `normalizeLoadedState` aplica migraciones necesarias.
-- Los backups incluyen `schemaVersion` y `backupVersion`.
-
-> Al restaurar un backup de una versión anterior, el sistema aplica las
-> migraciones automáticamente.
-
-## 6. Monitoreo y Mantenimiento
-
-### 6.1 Monitoreo
-
-Como el sistema es estático y sin backend, el monitoreo se limita a:
-
-- **Uptime**: verificar que el sitio responde.
-- **Performance**: tiempo de carga de la SPA.
-- **Errores de cliente**: usar Sentry o similar para capturar errores JS.
-
-### 6.2 Mantenimiento
-
-- **Actualización de dependencias**: revisar mensualmente con `npm outdated`.
-- **Actualización de Node.js**: mantener la versión LTS.
-- **Renovación de certificados SSL**: automática con la mayoría de proveedores.
-- **Backup de datos**: los usuarios deben exportar backups regularmente.
+`normalizeLoadedState` (en `src/state/appState.js`) sigue aplicando
+migraciones automáticas de versiones anteriores de datos, igual que
+antes de la migración a servidor.
 
 ## 7. Consideraciones de Seguridad
 
-### 7.1 Seguridad del Lado del Cliente
+- **Sin autenticación**: cualquier dispositivo en la red WiFi local puede
+  acceder al sistema con solo conocer la IP. Es aceptable en una red
+  doméstica/local de confianza, pero **no exponer el puerto del servidor
+  a internet** (no hacer port-forwarding en el router).
+- **No hay HTTPS**: al ser tráfico dentro de una red local de confianza,
+  no es indispensable, pero tampoco se debe usar esta configuración fuera
+  de esa red.
+- **No se almacenan datos de pago ni información personal de clientes**
+  — el sistema no lo requiere para operar.
 
-- **No hay secretos en el código**: todo el código es visible en el cliente.
-- **localStorage**: los datos están en el navegador del usuario.
-- **No hay autenticación**: el sistema es accesible para quien tenga la URL.
+## 8. Monitoreo y Mantenimiento
 
-### 7.2 Recomendaciones
-
-- **Acceso restringido**: servir el sistema en una red local o VPN.
-- **HTTPS obligatorio**: proteger la transmisión de datos.
-- **Backups regulares**: los datos están en el navegador del cliente.
-- **No almacenar datos sensibles**: el sistema no maneja información
-  personal de clientes ni datos de pago.
-
-### 7.3 Futuras Consideraciones
-
-Si el sistema necesita:
-- **Autenticación**: integrar un proveedor (Auth0, Firebase Auth, etc.).
-- **Sincronización multi-dispositivo**: agregar un backend con API.
-- **Base de datos en la nube**: integrar Supabase, Firebase, etc.
-
-## 8. Rendimiento
-
-### 8.1 Optimizaciones Implementadas
-
-- **Code splitting**: Vite divide el bundle automáticamente.
-- **Lazy loading**: componentes pesados se cargan bajo demanda.
-- **Memoización**: datos derivados usan `useMemo` en el Context.
-- **CSS optimizado**: estilos planos sin frameworks pesados.
-
-### 8.2 Métricas Objetivo
-
-| Métrica | Objetivo |
-|---|---|
-| First Contentful Paint (FCP) | < 1.5s |
-| Largest Contentful Paint (LCP) | < 2.5s |
-| Time to Interactive (TTI) | < 3.0s |
-| Bundle size | < 500 KB (gzip) |
-
-### 8.3 Testing de Rendimiento
-
-```bash
-# Build de producción
-npm run build
-
-# Analizar bundle
-npx vite-bundle-visualizer
-
-# Lighthouse (manual)
-# Abrir Chrome DevTools → Lighthouse → Run audit
-```
+- **Mantener el desktop encendido y sin suspensión** durante el horario
+  de atención — revisar la configuración de energía de Windows/macOS
+  para que no entre en reposo mientras el servidor debe estar disponible.
+- **Actualización de dependencias**: revisar periódicamente con
+  `npm outdated`.
+- **Backups regulares**: aunque el archivo en disco es la fuente de
+  verdad, los backups manuales son la red de seguridad ante fallas de
+  disco o borrados accidentales.
 
 ## 9. Recuperación ante Desastres
 
-### 9.1 Escenarios
-
 | Escenario | Solución |
 |---|---|
-| Navegador borró localStorage | Restaurar desde backup JSON |
-| Dispositivo roto/perdido | Restaurar backup en nuevo dispositivo |
+| Se corrompe o se borra `server/data/app-state.json` | Restaurar desde el backup JSON más reciente vía Panel → Restaurar Backup |
+| El desktop se apaga a mitad de una venta | Ese cambio puntual puede perderse si no llegó a persistirse; los cambios previos ya guardados están intactos |
+| Desktop roto/perdido | Reinstalar el sistema en un desktop nuevo y restaurar el backup JSON más reciente |
+| Tablet/celular no conecta | Revisar: misma red WiFi, IP correcta, Firewall del desktop |
 | Actualización rompe datos | Restaurar backup anterior |
-| Sitio caído | Redesplegar desde el repositorio |
-
-### 9.2 Procedimiento de Recuperación
-
-1. **Acceder al backup más reciente** (JSON descargado).
-2. **Navegar al sistema** en el dispositivo de recuperación.
-3. **Ir a Panel → Restaurar Backup**.
-4. **Seleccionar el archivo JSON**.
-5. **Confirmar la restauración**.
-
-> ⚠️ La restauración reemplaza todos los datos actuales. Siempre
-> verificar que el backup sea el más reciente antes de restaurar.
 
 ## 10. Checklist de Deployment
 
-### Pre-Deployment
+### Antes de un cambio grande
 
 - [ ] Tests pasan (`npm test`)
 - [ ] Build exitoso (`npm run build`)
 - [ ] CHANGELOG.md actualizado
-- [ ] Backup de datos creado
-- [ ] Versión etiquetada (tag)
+- [ ] Backup de datos creado desde el Panel
+- [ ] Probado con al menos un dispositivo adicional (tablet o celular) en la red WiFi
 
-### Post-Deployment
+### Después de desplegar
 
-- [ ] Sitio accesible en la URL
-- [ ] HTTPS funcionando
-- [ ] Datos cargan correctamente
-- [ ] POS funciona (registrar una venta de prueba)
+- [ ] El desktop sirve la app en `http://localhost:3000`
+- [ ] La tablet/celular puede acceder por `http://<IP-del-desktop>:3000`
+- [ ] Firewall del desktop permite conexiones entrantes al puerto usado
+- [ ] Datos cargan correctamente en todos los dispositivos
+- [ ] POS funciona (registrar una venta de prueba y verla reflejarse en otro dispositivo)
 - [ ] Compras funcionan (crear una OC de prueba)
 - [ ] Reportes cargan correctamente
 - [ ] Backup/restauración funciona

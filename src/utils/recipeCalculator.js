@@ -27,25 +27,55 @@ export function normalizeQuantity(quantity, recipeUnit, inventoryUnit, avgUnitWe
     const rUnit = normalizeUnitToken(recipeUnit);
     const iUnit = normalizeUnitToken(inventoryUnit);
 
-    // 1. MASA: Gramos a Kilos (Si iUnit es "kg" o viene vacío/indefinido por defecto)
-    if (rUnit === "gr" && (iUnit === "kg" || !iUnit)) {
-        return value / 1000;
+    // Reduce la unidad de receta a su base (gramos para masa, mililitros para
+    // volumen) para poder aplicar todas las conversiones desde un solo punto.
+    let baseValue = value;
+    let baseType = null; // "mass" | "volume"
+
+    if (rUnit === "gr") {
+        baseValue = value;
+        baseType = "mass";
+    } else if (rUnit === "kg") {
+        baseValue = value * 1000;
+        baseType = "mass";
+    } else if (rUnit === "ml") {
+        baseValue = value;
+        baseType = "volume";
+    } else if (rUnit === "lt") {
+        baseValue = value * 1000;
+        baseType = "volume";
     }
 
-    // 2. VOLUMEN: Mililitros a Litros (Si iUnit es "lt" o viene vacío/indefinido por defecto)
-    if (rUnit === "ml" && (iUnit === "lt" || !iUnit)) {
-        return value / 1000;
+    if (baseType === "mass") {
+        // 1. MASA → MASA: gramos a kilos (o si no hay unidad de inventario definida)
+        if (iUnit === "kg" || !iUnit) return baseValue / 1000;
+        if (iUnit === "gr") return baseValue;
+
+        // 2. MASA → VOLUMEN: fallback de densidad 1:1 (1 gr ≈ 1 ml). Cubre
+        // insumos que se compran por volumen (ej. Crema de Leche en "lt")
+        // pero se miden en la receta por peso (ej. "gr"). No es exacto para
+        // todos los ingredientes, pero evita costos gravemente inflados por
+        // un cruce de unidades sin convertir.
+        if (iUnit === "lt") return baseValue / 1000;
+        if (iUnit === "ml") return baseValue;
     }
 
-    // 3. Conversiones Inversas
-    if (rUnit === "kg" && iUnit === "gr") return value * 1000;
-    if (rUnit === "lt" && iUnit === "ml") return value * 1000;
+    if (baseType === "volume") {
+        // 3. VOLUMEN → VOLUMEN: mililitros a litros (o sin unidad de inventario definida)
+        if (iUnit === "lt" || !iUnit) return baseValue / 1000;
+        if (iUnit === "ml") return baseValue;
 
-    // 4. Conversión por peso promedio cuando el inventario es por unidades ("un")
+        // 4. VOLUMEN → MASA: mismo fallback de densidad 1:1 (1 ml ≈ 1 gr).
+        // Cubre insumos que se compran por peso (ej. Limón Sutil en "kg")
+        // pero se miden en la receta por volumen (ej. "ml" de jugo).
+        if (iUnit === "kg") return baseValue / 1000;
+        if (iUnit === "gr") return baseValue;
+    }
+
+    // 5. Conversión por peso promedio cuando el inventario es por unidades ("un")
     const weightGr = Number(avgUnitWeightGr) || 0;
-    if (iUnit === "un" && weightGr > 0) {
-        if (rUnit === "gr") return value / weightGr;
-        if (rUnit === "kg") return (value * 1000) / weightGr;
+    if (iUnit === "un" && weightGr > 0 && baseType === "mass") {
+        return baseValue / weightGr;
     }
 
     // Si las unidades ya coinciden o no hay regla especificada

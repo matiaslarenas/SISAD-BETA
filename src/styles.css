@@ -2020,3 +2020,13 @@ button:disabled {
     display: none !important;
   }
 }
+.app-loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.95rem;
+  padding: 24px;
+}

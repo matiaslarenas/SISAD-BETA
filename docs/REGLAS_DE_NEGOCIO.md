@@ -1,4 +1,4 @@
-# Reglas de Negocio — Sistema Restaurante Los Laureles
+# Reglas de Negocio — Sistema Restaurante El Mesón de Los Laureles
 
 > Documento de referencia para las reglas de negocio del restaurante.
 > Complementa `ARCHITECTURE.md` con ejemplos concretos y casos de uso.
