@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildEscPosTicket } from "../server/printer.js";
+import { buildKitchenComandaTicket, buildCustomerReceiptTicket } from "../server/printer.js";
 
 const SAMPLE_SALE = {
   id: "VTA-1001",
@@ -17,15 +17,56 @@ const SAMPLE_SALE = {
   totalAmount: 17500,
 };
 
-test("buildEscPosTicket returns a Buffer that starts with the ESC/POS init command", () => {
-  const buffer = buildEscPosTicket(SAMPLE_SALE);
+test("buildKitchenComandaTicket returns a Buffer that starts with the ESC/POS init command", () => {
+  const buffer = buildKitchenComandaTicket(SAMPLE_SALE);
   assert.ok(Buffer.isBuffer(buffer));
   assert.equal(buffer[0], 0x1b); // ESC
   assert.equal(buffer[1], 0x40); // @
 });
 
-test("buildEscPosTicket includes table, items, total and payment method as readable text", () => {
-  const buffer = buildEscPosTicket(SAMPLE_SALE);
+test("buildKitchenComandaTicket includes table, items with quantity, the order note and the time — no prices", () => {
+  const buffer = buildKitchenComandaTicket(SAMPLE_SALE);
+  const text = buffer.toString("latin1");
+
+  assert.match(text, /Mesa 3/);
+  assert.match(text, /2x Pizza Napolitana/);
+  assert.match(text, /1x Bebida/);
+  assert.match(text, /20:30/);
+  assert.match(text, /Sin cebolla/);
+  assert.doesNotMatch(text, /17.500/);
+  assert.doesNotMatch(text, /8.000/);
+});
+
+test("buildKitchenComandaTicket omits the note line when there is none", () => {
+  const buffer = buildKitchenComandaTicket({ ...SAMPLE_SALE, notes: "" });
+  const text = buffer.toString("latin1");
+
+  assert.doesNotMatch(text, /Nota:/);
+});
+
+test("buildKitchenComandaTicket ends with the paper cut command", () => {
+  const buffer = buildKitchenComandaTicket(SAMPLE_SALE);
+  const tail = buffer.subarray(buffer.length - 3);
+
+  assert.equal(tail[0], 0x1d); // GS
+  assert.equal(tail[1], 0x56); // V
+  assert.equal(tail[2], 0x00); // corte total
+});
+
+test("buildKitchenComandaTicket handles a ticket with no items or notes", () => {
+  const buffer = buildKitchenComandaTicket({
+    id: "VTA-1002",
+    tableOrCustomer: "Mostrador",
+    items: [],
+    totalAmount: 0,
+  });
+
+  assert.ok(Buffer.isBuffer(buffer));
+  assert.match(buffer.toString("latin1"), /Mostrador/);
+});
+
+test("buildCustomerReceiptTicket includes table, items, total and payment method as readable text", () => {
+  const buffer = buildCustomerReceiptTicket(SAMPLE_SALE);
   const text = buffer.toString("latin1");
 
   assert.match(text, /Mesa 3/);
@@ -36,8 +77,19 @@ test("buildEscPosTicket includes table, items, total and payment method as reada
   assert.match(text, /Sin cebolla/);
 });
 
-test("buildEscPosTicket ends with the paper cut command", () => {
-  const buffer = buildEscPosTicket(SAMPLE_SALE);
+test("buildCustomerReceiptTicket suggests a 10% tip and includes the total with tip", () => {
+  const buffer = buildCustomerReceiptTicket(SAMPLE_SALE);
+  const text = buffer.toString("latin1");
+
+  // 17500 * 0.10 = 1750; 17500 + 1750 = 19250
+  assert.match(text, /Sugerencia propina 10%/);
+  assert.match(text, /1.750/);
+  assert.match(text, /TOTAL \+ PROPINA/);
+  assert.match(text, /19.250/);
+});
+
+test("buildCustomerReceiptTicket ends with the paper cut command", () => {
+  const buffer = buildCustomerReceiptTicket(SAMPLE_SALE);
   const tail = buffer.subarray(buffer.length - 3);
 
   assert.equal(tail[0], 0x1d); // GS
@@ -45,8 +97,8 @@ test("buildEscPosTicket ends with the paper cut command", () => {
   assert.equal(tail[2], 0x00); // corte total
 });
 
-test("buildEscPosTicket handles a ticket with no items or notes", () => {
-  const buffer = buildEscPosTicket({
+test("buildCustomerReceiptTicket handles a ticket with no items or notes", () => {
+  const buffer = buildCustomerReceiptTicket({
     id: "VTA-1002",
     tableOrCustomer: "Mostrador",
     items: [],

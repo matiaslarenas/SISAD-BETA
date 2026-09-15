@@ -26,7 +26,11 @@ import { fileURLToPath } from "node:url";
 
 import { appDataReducer } from "../src/state/rootReducer.js";
 import { loadState, saveState } from "./persistence.js";
-import { buildEscPosTicket, printTicketBuffer } from "./printer.js";
+import {
+  buildKitchenComandaTicket,
+  buildCustomerReceiptTicket,
+  printTicketBuffer,
+} from "./printer.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
@@ -145,8 +149,11 @@ async function handleApi(req, res, pathname) {
   if (pathname === "/api/print-ticket" && req.method === "POST") {
     try {
       const raw = await readRequestBody(req);
-      const sale = JSON.parse(raw || "{}");
-      const buffer = buildEscPosTicket(sale);
+      const { kind, ...sale } = JSON.parse(raw || "{}");
+      const buffer =
+        kind === "kitchen"
+          ? buildKitchenComandaTicket(sale)
+          : buildCustomerReceiptTicket(sale);
       await printTicketBuffer(buffer);
       sendJson(res, 200, { ok: true });
     } catch (error) {
