@@ -24,6 +24,7 @@ const emptySupplier = {
   name: "",
   category: "",
   leadTime: "",
+  phone: "",
   compliance: "",
 };
 
@@ -139,6 +140,7 @@ function Suppliers() {
       name: supplier.name,
       category: supplier.category,
       leadTime: supplier.leadTime,
+      phone: supplier.phone,
       compliance: parsePercent(
         supplier.compliance
       ),
@@ -321,6 +323,21 @@ function Suppliers() {
                   {errors.leadTime}
                 </p>
               ) : null}
+            </label>
+
+            <label className="form-field">
+              <span>Teléfono (opcional)</span>
+              <input
+                type="text"
+                className="search-input"
+                value={newSupplier.phone}
+                onChange={(event) =>
+                  setNewSupplier({
+                    ...newSupplier,
+                    phone: event.target.value,
+                  })
+                }
+              />
             </label>
 
             <label className="form-field">

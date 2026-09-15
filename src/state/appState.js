@@ -226,6 +226,7 @@ function normalizeSupplier(supplier) {
     name: String(supplier.name || "").trim(),
     category: String(supplier.category || "").trim(),
     leadTime: String(supplier.leadTime || "").trim(),
+    phone: String(supplier.phone || "").trim(),
     compliance,
     status:
       supplier.status || derivedStatus.status,
