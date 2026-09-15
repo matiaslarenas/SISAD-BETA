@@ -377,47 +377,62 @@ export default function POS() {
     setTimeout(() => setSuccessMessage(""), 4500);
   };
 
-  // Envía el pedido actual (aún no guardado) a la impresora térmica del
-  // desktop, para poder imprimir la comanda/ticket sin depender de que
-  // ya se haya cerrado la venta.
-  const handlePrintTicket = async () => {
+  // Arma el pedido actual (aún no guardado) con la misma forma que
+  // espera la impresora, para poder imprimirlo sin depender de que ya
+  // se haya cerrado la venta.
+  const buildCurrentSalePayload = () => ({
+    id: activeTicketId || generateSaleId(),
+    tableOrCustomer,
+    paymentMethod,
+    date: getTodayISODate(),
+    time: new Date().toLocaleTimeString("es-CL", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    items: ticketItems.map((item) => ({
+      type: item.type,
+      itemId: item.id,
+      name: item.name,
+      quantity: item.quantity,
+      unitPrice: item.salePrice,
+      totalPrice: item.salePrice * item.quantity,
+    })),
+    totalAmount: ticketTotals.totalAmount,
+    notes: ticketNotes,
+  });
+
+  // Comanda para cocina: ítem + cantidad + nota del pedido (si existe) +
+  // hora, sin precios.
+  const handlePrintKitchenComanda = async () => {
     if (ticketItems.length === 0) return;
 
-    const salePayload = {
-      id: activeTicketId || generateSaleId(),
-      tableOrCustomer,
-      paymentMethod,
-      date: getTodayISODate(),
-      time: new Date().toLocaleTimeString("es-CL", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      items: ticketItems.map((item) => ({
-        type: item.type,
-        itemId: item.id,
-        name: item.name,
-        quantity: item.quantity,
-        unitPrice: item.salePrice,
-        totalPrice: item.salePrice * item.quantity,
-      })),
-      totalAmount: ticketTotals.totalAmount,
-      notes: ticketNotes,
-    };
+    try {
+      await printTicket({ kind: "kitchen", ...buildCurrentSalePayload() });
+      toast.success("Comanda enviada a cocina");
+    } catch (error) {
+      toast.error(error.message || "No se pudo imprimir la comanda");
+    }
+  };
+
+  // Cuenta final para el cliente: detalle con precios, total y
+  // sugerencia de propina del 10%.
+  const handlePrintCustomerReceipt = async () => {
+    if (ticketItems.length === 0) return;
 
     try {
-      await printTicket(salePayload);
-      toast.success("Ticket enviado a la impresora");
+      await printTicket({ kind: "customer", ...buildCurrentSalePayload() });
+      toast.success("Cuenta enviada a la impresora");
     } catch (error) {
-      toast.error(error.message || "No se pudo imprimir el ticket");
+      toast.error(error.message || "No se pudo imprimir la cuenta");
     }
   };
 
   const handleReprintSale = async (sale) => {
     try {
-      await printTicket(sale);
-      toast.success(`Ticket ${sale.id} reimpreso`);
+      await printTicket({ kind: "customer", ...sale });
+      toast.success(`Cuenta ${sale.id} reimpresa`);
     } catch (error) {
-      toast.error(error.message || "No se pudo imprimir el ticket");
+      toast.error(error.message || "No se pudo imprimir la cuenta");
     }
   };
 
@@ -777,12 +792,22 @@ export default function POS() {
                     <button
                       type="button"
                       className="secondary-btn"
-                      style={{ flex: "0 0 auto", padding: "14px 18px", fontSize: "0.95rem" }}
-                      onClick={handlePrintTicket}
-                      aria-label="Imprimir ticket"
-                      title="Imprimir ticket"
+                      style={{ flex: "0 0 auto", padding: "14px 14px", fontSize: "0.95rem" }}
+                      onClick={handlePrintKitchenComanda}
+                      aria-label="Imprimir comanda para cocina"
+                      title="Imprimir comanda (cocina)"
                     >
-                      <Printer size={18} />
+                      <Utensils size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      style={{ flex: "0 0 auto", padding: "14px 14px", fontSize: "0.95rem" }}
+                      onClick={handlePrintCustomerReceipt}
+                      aria-label="Imprimir cuenta para el cliente"
+                      title="Imprimir cuenta (cliente)"
+                    >
+                      <Receipt size={18} />
                     </button>
                     <button
                       type="submit"

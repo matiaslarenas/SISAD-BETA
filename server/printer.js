@@ -61,10 +61,47 @@ function formatItemLine(item) {
   return `${qty}${name}${padLeft(total, PRICE_WIDTH)}\n`;
 }
 
-// Genera los bytes ESC/POS del ticket a partir de un objeto venta/pedido
-// con la misma forma que produce normalizeSale en src/state/appState.js
-// (id, tableOrCustomer, date, time, items, totalAmount, paymentMethod, notes).
-export function buildEscPosTicket(sale) {
+const TIP_RATE = 0.1;
+
+// Comanda para cocina: qué se pide y cuánto, sin precios (la cocina no
+// cobra). El ítem y la cantidad van en letra grande para que se lean
+// desde lejos; la nota del pedido (si existe) y la hora ayudan a
+// priorizar y a resolver dudas sobre modificaciones al plato.
+export function buildKitchenComandaTicket(sale) {
+  const parts = [];
+
+  parts.push(INIT);
+  parts.push(ALIGN_CENTER, BOLD_ON, DOUBLE_ON);
+  parts.push("COMANDA COCINA\n");
+  parts.push(DOUBLE_OFF, BOLD_OFF);
+  parts.push(`${sale.tableOrCustomer || "Mostrador"}\n`);
+  if (sale.id) parts.push(`${sale.id}\n`);
+  parts.push(`Hora: ${sale.time || ""}\n`);
+  parts.push(ALIGN_LEFT);
+  parts.push("-".repeat(LINE_WIDTH) + "\n");
+
+  parts.push(BOLD_ON, DOUBLE_ON);
+  for (const item of sale.items || []) {
+    parts.push(`${item.quantity}x ${item.name || ""}\n`);
+  }
+  parts.push(DOUBLE_OFF, BOLD_OFF);
+
+  parts.push("-".repeat(LINE_WIDTH) + "\n");
+  if (sale.notes) {
+    parts.push(BOLD_ON, `Nota: ${sale.notes}\n`, BOLD_OFF);
+  }
+  parts.push("\n\n\n");
+  parts.push(CUT);
+
+  return Buffer.from(parts.join(""), "latin1");
+}
+
+// Cuenta final para el cliente: detalle de productos con precio, total
+// de la cuenta, sugerencia de propina del 10% y el total incluyéndola.
+// Recibe un objeto venta/pedido con la misma forma que produce
+// normalizeSale en src/state/appState.js (id, tableOrCustomer, date,
+// time, items, totalAmount, paymentMethod, notes).
+export function buildCustomerReceiptTicket(sale) {
   const parts = [];
 
   parts.push(INIT);
@@ -81,9 +118,17 @@ export function buildEscPosTicket(sale) {
     parts.push(formatItemLine(item));
   }
 
+  const subtotal = sale.totalAmount || 0;
+  const tip = Math.round(subtotal * TIP_RATE);
+  const totalWithTip = subtotal + tip;
+
   parts.push("-".repeat(LINE_WIDTH) + "\n");
   parts.push(BOLD_ON);
-  parts.push(padRight("TOTAL", LINE_WIDTH - PRICE_WIDTH) + padLeft(`$${formatMoney(sale.totalAmount)}`, PRICE_WIDTH) + "\n");
+  parts.push(padRight("TOTAL", LINE_WIDTH - PRICE_WIDTH) + padLeft(`$${formatMoney(subtotal)}`, PRICE_WIDTH) + "\n");
+  parts.push(BOLD_OFF);
+  parts.push(padRight("Sugerencia propina 10%", LINE_WIDTH - PRICE_WIDTH) + padLeft(`$${formatMoney(tip)}`, PRICE_WIDTH) + "\n");
+  parts.push(BOLD_ON);
+  parts.push(padRight("TOTAL + PROPINA", LINE_WIDTH - PRICE_WIDTH) + padLeft(`$${formatMoney(totalWithTip)}`, PRICE_WIDTH) + "\n");
   parts.push(BOLD_OFF);
   parts.push(`Pago: ${sale.paymentMethod || ""}\n`);
   if (sale.notes) {

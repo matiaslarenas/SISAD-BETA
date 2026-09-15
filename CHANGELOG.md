@@ -10,8 +10,12 @@ All notable changes to this project will be documented in this file.
   la impresora USB ya instalada en Windows a través de un recurso
   compartido local (`copy /b`), sin agregar dependencias externas al
   servidor. Requiere compartir la impresora en Windows una vez (ver
-  comentario al inicio de `server/printer.js`). Botón "Imprimir" en el
-  ticket actual y "Reimprimir" en el historial de ventas de `POS.jsx`.
+  comentario al inicio de `server/printer.js`). Dos botones separados en
+  el ticket actual de `POS.jsx`: "Imprimir comanda (cocina)" —ítem,
+  cantidad, nota del pedido (si existe) y hora, sin precios— e "Imprimir
+  cuenta (cliente)" —detalle de productos con precio, total y sugerencia
+  de propina del 10% más el total incluyéndola—. El botón "Reimprimir"
+  del historial de ventas reimprime la cuenta del cliente.
 - **Servidor local** (`server/index.js`, `server/persistence.js`) — sin
   dependencias externas (solo módulos nativos de Node). Corre en el
   computador de escritorio del restaurante y es la única fuente de
