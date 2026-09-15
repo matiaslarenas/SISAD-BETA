@@ -47,6 +47,21 @@ async function postAction(action) {
   return res.json();
 }
 
+// A diferencia de dispatch(), imprimir no muta el estado de la app —
+// es un efecto físico en la impresora del desktop (ver server/printer.js).
+async function postPrintTicket(sale) {
+  const res = await fetch("/api/print-ticket", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(sale),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "No se pudo imprimir el ticket");
+  }
+  return res.json();
+}
+
 export function AppDataProvider({ children }) {
   const [state, setState] = useState(null);
   const [connectionError, setConnectionError] = useState(null);
@@ -184,6 +199,7 @@ export function AppDataProvider({ children }) {
       generateSaleId: () => (state ? generateSaleId(state) : ""),
       voidSale: (saleId) => dispatch({ type: "sale/void", payload: { saleId } }),
       recordWaste: (payload) => dispatch({ type: "waste/record", payload }),
+      printTicket: (sale) => postPrintTicket(sale),
     }),
     [
       state,

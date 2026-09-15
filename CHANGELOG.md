@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Impresión de tickets en impresora térmica** (`server/printer.js`,
+  `POST /api/print-ticket`) — genera el ticket en ESC/POS y lo envía a
+  la impresora USB ya instalada en Windows a través de un recurso
+  compartido local (`copy /b`), sin agregar dependencias externas al
+  servidor. Requiere compartir la impresora en Windows una vez (ver
+  comentario al inicio de `server/printer.js`). Botón "Imprimir" en el
+  ticket actual y "Reimprimir" en el historial de ventas de `POS.jsx`.
 - **Servidor local** (`server/index.js`, `server/persistence.js`) — sin
   dependencias externas (solo módulos nativos de Node). Corre en el
   computador de escritorio del restaurante y es la única fuente de
