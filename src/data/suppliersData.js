@@ -8,4 +8,13 @@ export const suppliers = [
         statusClass: "danger",
         status: "Crítico",
     },
+    {
+        name: "Carnicería Hereford",
+        category: "Proteínas",
+        leadTime: "Por confirmar",
+        phone: "Por confirmar",
+        compliance: "0%",
+        statusClass: "danger",
+        status: "Crítico",
+    },
 ];
