@@ -26,6 +26,7 @@ import { fileURLToPath } from "node:url";
 
 import { appDataReducer } from "../src/state/rootReducer.js";
 import { loadState, saveState } from "./persistence.js";
+import { buildEscPosTicket, printTicketBuffer } from "./printer.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
@@ -137,6 +138,20 @@ async function handleApi(req, res, pathname) {
     } catch (error) {
       console.error("[api/dispatch]", error);
       sendJson(res, 400, { error: "No se pudo procesar la acción." });
+    }
+    return;
+  }
+
+  if (pathname === "/api/print-ticket" && req.method === "POST") {
+    try {
+      const raw = await readRequestBody(req);
+      const sale = JSON.parse(raw || "{}");
+      const buffer = buildEscPosTicket(sale);
+      await printTicketBuffer(buffer);
+      sendJson(res, 200, { ok: true });
+    } catch (error) {
+      console.error("[api/print-ticket]", error);
+      sendJson(res, 500, { error: error.message || "No se pudo imprimir el ticket." });
     }
     return;
   }

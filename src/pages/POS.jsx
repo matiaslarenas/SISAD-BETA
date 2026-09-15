@@ -13,6 +13,7 @@ import {
   CreditCard,
   Utensils,
   ShoppingBag,
+  Printer,
 } from "lucide-react";
 
 import MetricCard from "../components/MetricCard";
@@ -40,6 +41,7 @@ export default function POS() {
     closeTicket,
     generateSaleId,
     voidSale,
+    printTicket,
   } = useAppData();
 
   const [search, setSearch] = useState("");
@@ -373,6 +375,50 @@ export default function POS() {
     setSuccessMessage(`¡Venta registrada con éxito! Stock descontado automáticamente.`);
     resetCurrentForm();
     setTimeout(() => setSuccessMessage(""), 4500);
+  };
+
+  // Envía el pedido actual (aún no guardado) a la impresora térmica del
+  // desktop, para poder imprimir la comanda/ticket sin depender de que
+  // ya se haya cerrado la venta.
+  const handlePrintTicket = async () => {
+    if (ticketItems.length === 0) return;
+
+    const salePayload = {
+      id: activeTicketId || generateSaleId(),
+      tableOrCustomer,
+      paymentMethod,
+      date: getTodayISODate(),
+      time: new Date().toLocaleTimeString("es-CL", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      items: ticketItems.map((item) => ({
+        type: item.type,
+        itemId: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: item.salePrice,
+        totalPrice: item.salePrice * item.quantity,
+      })),
+      totalAmount: ticketTotals.totalAmount,
+      notes: ticketNotes,
+    };
+
+    try {
+      await printTicket(salePayload);
+      toast.success("Ticket enviado a la impresora");
+    } catch (error) {
+      toast.error(error.message || "No se pudo imprimir el ticket");
+    }
+  };
+
+  const handleReprintSale = async (sale) => {
+    try {
+      await printTicket(sale);
+      toast.success(`Ticket ${sale.id} reimpreso`);
+    } catch (error) {
+      toast.error(error.message || "No se pudo imprimir el ticket");
+    }
   };
 
   const handleCancelPendingTicket = (saleId) => {
@@ -729,6 +775,16 @@ export default function POS() {
                       {activeTicketId ? "Actualizar Pedido" : "Guardar Pedido"}
                     </button>
                     <button
+                      type="button"
+                      className="secondary-btn"
+                      style={{ flex: "0 0 auto", padding: "14px 18px", fontSize: "0.95rem" }}
+                      onClick={handlePrintTicket}
+                      aria-label="Imprimir ticket"
+                      title="Imprimir ticket"
+                    >
+                      <Printer size={18} />
+                    </button>
+                    <button
                       type="submit"
                       className="primary-btn checkout-btn"
                       style={{ flex: 1, padding: "14px 18px", fontSize: "1.05rem" }}
@@ -814,14 +870,25 @@ export default function POS() {
                         </td>
                         <td>
                           {!isVoided ? (
-                            <button
-                              type="button"
-                              className="danger-btn mini-btn"
-                              onClick={() => handleVoidSale(sale.id)}
-                              aria-label={`Anular venta ${sale.id}`}
-                            >
-                              Anular
-                            </button>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <button
+                                type="button"
+                                className="secondary-btn mini-btn"
+                                onClick={() => handleReprintSale(sale)}
+                                aria-label={`Reimprimir venta ${sale.id}`}
+                                title="Reimprimir ticket"
+                              >
+                                <Printer size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className="danger-btn mini-btn"
+                                onClick={() => handleVoidSale(sale.id)}
+                                aria-label={`Anular venta ${sale.id}`}
+                              >
+                                Anular
+                              </button>
+                            </div>
                           ) : (
                             <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
                               Reintegrado
