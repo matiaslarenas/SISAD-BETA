@@ -29,6 +29,7 @@ function SuppliersTable({
                         <th>Proveedor</th>
                         <th>Categoría</th>
                         <th>Lead Time</th>
+                        <th>Teléfono</th>
                         <th>Cumplimiento</th>
                         <th>Estado</th>
                         <th>Acciones</th>
@@ -54,6 +55,10 @@ function SuppliersTable({
 
                             <td>
                                 {supplier.leadTime}
+                            </td>
+
+                            <td>
+                                {supplier.phone || "—"}
                             </td>
 
                             <td>
