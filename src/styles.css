@@ -321,33 +321,32 @@ button {
   gap: 12px;
 }
 
-.primary-btn {
-  background: linear-gradient(135deg,
-      #1d6951,
-      #24936a);
-  color: white;
+.primary-btn,
+.secondary-btn,
+.mini-btn,
+.danger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
   border: 0;
+  padding: 12px 18px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  transition: all 0.25s ease;
+}
 
-  transition: all .25s ease;
+.primary-btn {
+  background: linear-gradient(135deg, var(--primary), #2d8a5f);
+  color: white;
 }
 
 .primary-btn:hover {
   transform: translateY(-2px);
   box-shadow:
     0 10px 25px rgba(29, 105, 81, .35);
-}
-
-.secondary-btn,
-.mini-btn {
-  border-radius: 12px;
-  border: 0;
-  padding: 12px 18px;
-  font-weight: 700;
-}
-
-.primary-btn {
-  background: linear-gradient(135deg, var(--primary), #2d8a5f);
-  color: white;
 }
 
 .secondary-btn,
@@ -404,6 +403,180 @@ button {
   font-size: 0.82rem;
 }
 
+/* =========================
+   COMPACT METRIC CARD (Overview)
+========================= */
+
+.panel.metric-card-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 0;
+}
+
+.metric-card-compact-body {
+  min-width: 0;
+}
+
+.metric-card-compact-label {
+  margin: 0 0 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.metric-card-compact-value-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.metric-card-compact-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.metric-card-compact-trend {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--panel-alt);
+  color: var(--muted);
+}
+
+.metric-card-compact-trend.warning {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.metric-card-compact-trend.danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.metric-card-compact-trend.success {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.metric-card-compact-icon {
+  padding: 10px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--panel-alt);
+  color: var(--muted);
+}
+
+.metric-card-compact-icon.warning {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.metric-card-compact-icon.danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.metric-card-compact-icon.success {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+/* =========================
+   DATA MENU (Overview export/import dropdown)
+========================= */
+
+.data-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.data-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+}
+
+.data-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.data-menu-item:last-child {
+  border-bottom: none;
+}
+
+.data-menu-item:hover {
+  background: var(--panel-alt);
+}
+
+/* =========================
+   COLLAPSIBLE PANEL SECTIONS
+========================= */
+
+.collapsible-trigger {
+  width: 100%;
+  font: inherit;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+}
+
+.collapsible-trigger h3 {
+  margin: 0;
+}
+
+.collapsible-trigger-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.collapsible-badge {
+  background: var(--danger);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.panel-header.clickable {
+  cursor: pointer;
+}
+
 .content-grid,
 .lower-grid {
   display: grid;
@@ -412,6 +585,11 @@ button {
 }
 
 .panel {
+  background: var(--panel);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 20px;
+  padding: 22px;
+  box-shadow: var(--shadow);
   transition: all .25s ease;
 }
 
@@ -691,6 +869,12 @@ th {
   margin-top: 4px;
 }
 
+.purchase-row .status {
+  display: inline-flex;
+  justify-self: start;
+  margin-top: 0;
+}
+
 .activity-list {
   list-style: none;
   padding: 0;
@@ -723,33 +907,6 @@ th {
     grid-template-columns: 1fr;
   }
 
-  .sidebar {
-    position: static;
-    height: auto;
-    border-radius: 22px;
-  }
-
-  .brand {
-    padding-bottom: 18px;
-  }
-
-  .nav-section {
-    margin-top: 18px;
-  }
-
-  .nav {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .nav-item {
-    justify-content: center;
-    padding-inline: 10px;
-  }
-
-  .nav-item.active::after {
-    display: none;
-  }
-
   .sidebar-card {
     display: none;
   }
@@ -763,54 +920,6 @@ th {
   .app-shell {
     gap: 16px;
     padding: 12px;
-  }
-
-  .sidebar {
-    padding: 16px 12px 12px;
-    border-radius: 19px;
-  }
-
-  .brand {
-    padding: 0 4px 14px;
-  }
-
-  .brand-mark {
-    width: 42px;
-    height: 42px;
-  }
-
-  .brand-copy>span,
-  .nav-label {
-    display: none;
-  }
-
-  .nav-section {
-    margin-top: 12px;
-  }
-
-  .nav {
-    display: flex;
-    gap: 7px;
-    overflow-x: auto;
-    padding: 0 1px 4px;
-    scrollbar-width: none;
-  }
-
-  .nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  .nav-item {
-    min-width: max-content;
-    min-height: 42px;
-    gap: 8px;
-    padding: 7px 11px;
-    font-size: 0.8rem;
-  }
-
-  .nav-item-icon {
-    width: 26px;
-    height: 26px;
   }
 
   .main-panel {
@@ -872,25 +981,6 @@ th {
 
 .suppliers-table tbody tr:hover {
   background: rgba(29, 105, 81, 0.05);
-}
-
-.supplier-name {
-  font-weight: 600;
-}
-
-.compliance-high {
-  color: var(--success);
-  font-weight: 700;
-}
-
-.compliance-medium {
-  color: var(--warning);
-  font-weight: 700;
-}
-
-.compliance-low {
-  color: var(--danger);
-  font-weight: 700;
 }
 
 /* =========================
@@ -985,11 +1075,6 @@ th {
   background: rgba(245, 184, 75, 0.1);
 }
 
-@media (max-width: 980px) {
-  .nav-item.active::after {
-    display: none;
-  }
-}
 
 .search-input {
   width: 100%;
@@ -1035,25 +1120,17 @@ th {
   gap: 8px;
 }
 
-.secondary-btn {
-  border: none;
-  background: #2563eb;
-  color: white;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-
-.secondary-btn:hover {
-  background: #1d4ed8;
-}
-
 .primary-btn,
 .secondary-btn,
-.mini-btn,
 .danger-btn {
-  min-height: 40px;
+  min-height: 44px;
+}
+
+.mini-btn {
+  min-height: 36px;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  border-radius: 10px;
 }
 
 .primary-btn,
@@ -1092,9 +1169,6 @@ button:disabled {
   border: 1px solid rgba(214, 69, 69, 0.2);
   background: var(--danger-soft);
   color: var(--danger);
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-weight: 700;
 }
 
 .danger-btn:hover {
@@ -1985,41 +2059,6 @@ button:disabled {
   }
 }
 
-/* Override mobile/tablet nav styles when sidebar is open */
-@media (max-width: 980px) {
-  .sidebar.open .nav {
-    grid-template-columns: 1fr !important;
-  }
-  
-  .sidebar.open .nav-item {
-    justify-content: flex-start !important;
-    padding-inline: 12px !important;
-  }
-}
-
-@media (max-width: 620px) {
-  .sidebar.open .nav {
-    display: grid !important;
-    grid-template-columns: 1fr !important;
-    gap: 5px !important;
-    flex: 1 !important;
-    min-height: 0 !important;
-    overflow-y: auto !important;
-    scrollbar-gutter: stable !important;
-  }
-  
-  .sidebar.open .nav-item {
-    min-width: auto !important;
-    min-height: 46px !important;
-    gap: 12px !important;
-    padding: 8px 12px !important;
-    font-size: 0.9rem !important;
-  }
-  
-  .sidebar.open .nav::-webkit-scrollbar {
-    display: none !important;
-  }
-}
 .app-loading-state {
   display: flex;
   align-items: center;

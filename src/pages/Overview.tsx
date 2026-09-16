@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import type { CSSProperties } from "react";
 import type { ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -9,7 +8,7 @@ import {
   Recycle,
   Truck,
   Upload,
-  Settings,      // === MODIFICADO: Iconos nuevos para la UI ===
+  Settings,
   ChevronDown,
   ChevronUp
 } from "lucide-react";
@@ -26,7 +25,6 @@ import { toast } from "sonner";
 
 import AlertsPanel from "../components/AlertsPanel";
 import InventoryTable from "../components/InventoryTable";
-// import KpiCard from "../components/KpiCard"; // === MODIFICADO: Lo quitamos para usar un diseño inline más compacto ===
 import Modal from "../components/Modal";
 import PendingOrders from "../components/PendingOrders";
 import { useAppData } from "../context/AppDataContext";
@@ -78,7 +76,6 @@ function Overview() {
   const [backupPendingRestore, setBackupPendingRestore] =
     useState<BackupEnvelope | null>(null);
 
-  // === MODIFICADO: Estados para manejar menús y collapsables ===
   const [isDataMenuOpen, setIsDataMenuOpen] = useState(false);
   const [isAlertsOpen, setIsAlertsOpen] = useState(true);
   const [isInventoryOpen, setIsInventoryOpen] = useState(true);
@@ -250,133 +247,80 @@ function Overview() {
             onChange={handleFileChange}
           />
 
-          {/* === MODIFICADO: Dropdown de Gestión de Datos === */}
-          <div style={{ position: 'relative', display: 'inline-block' }}>
+          <div className="data-menu">
             <button
               type="button"
               className="secondary-btn"
               onClick={() => setIsDataMenuOpen(!isDataMenuOpen)}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
             >
               <Settings size={16} /> Gestión de Datos <ChevronDown size={14} />
             </button>
 
             {isDataMenuOpen && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: '8px',
-                backgroundColor: 'white',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                zIndex: 50,
-                minWidth: '200px',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column'
-              }}>
-                <button type="button" onClick={handleExportInventoryCsv} style={dropdownItemStyle}>
+              <div className="data-menu-dropdown">
+                <button type="button" onClick={handleExportInventoryCsv} className="data-menu-item">
                   <Download size={16} /> Exportar CSV
                 </button>
-                <button type="button" onClick={handleExportBackup} style={dropdownItemStyle}>
+                <button type="button" onClick={handleExportBackup} className="data-menu-item">
                   <Download size={16} /> Respaldar JSON
                 </button>
-                <button type="button" onClick={() => { fileInputRef.current?.click(); setIsDataMenuOpen(false); }} style={dropdownItemStyle}>
+                <button type="button" onClick={() => { fileInputRef.current?.click(); setIsDataMenuOpen(false); }} className="data-menu-item">
                   <Upload size={16} /> Restaurar JSON
                 </button>
               </div>
             )}
           </div>
 
-          {/* === MODIFICADO: Texto cambiado a "Nueva Orden de Compra" === */}
           <button type="button" className="primary-btn" onClick={() => navigate("/purchases")}>
             Nueva Orden de Compra
           </button>
         </div>
       </header>
 
-      {/* === MODIFICADO: Tarjetas compactas en línea === */}
-      {/* === MODIFICADO: Tarjetas compactas en línea con Flexbox ajustado === */}
+      {/* Tarjetas compactas de métricas operacionales */}
       <section className="metrics-grid">
-        {metrics.map((metric) => (
-          <div
-            key={metric.label}
-            className="panel"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '1rem',
-              marginBottom: 0,
-              gap: '12px' // Añadimos gap general por si acaso
-            }}
-          >
-            {/* Contenedor izquierdo: Textos (con minWidth: 0 para evitar desbordes) */}
-            <div style={{ minWidth: 0 }}>
-              <p style={{ margin: '0 0 4px 0', fontSize: '0.85rem', color: '#64748b' }}>
-                {metric.label}
-              </p>
-              {/* Aquí agregamos flexWrap: 'wrap' por si el número es muy grande */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#0f172a' }}>
-                  {metric.value}
-                </span>
-                <span style={{
-                  fontSize: '0.75rem',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  backgroundColor: metric.status === 'danger' ? '#fee2e2' : metric.status === 'warning' ? '#fef3c7' : '#f1f5f9',
-                  color: metric.status === 'danger' ? '#991b1b' : metric.status === 'warning' ? '#92400e' : '#475569',
-                  fontWeight: '500',
-                  whiteSpace: 'nowrap' // Evita que el texto del badge se parta
-                }}>
-                  {metric.trend}
-                </span>
+        {metrics.map((metric) => {
+          const statusClass = metric.status !== "default" ? metric.status : "";
+          return (
+            <div key={metric.label} className="panel metric-card-compact">
+              <div className="metric-card-compact-body">
+                <p className="metric-card-compact-label">{metric.label}</p>
+                <div className="metric-card-compact-value-row">
+                  <span className="metric-card-compact-value">{metric.value}</span>
+                  <span className={`metric-card-compact-trend ${statusClass}`}>
+                    {metric.trend}
+                  </span>
+                </div>
+              </div>
+
+              <div className={`metric-card-compact-icon ${statusClass}`}>
+                <metric.icon size={24} />
               </div>
             </div>
-
-            {/* Contenedor derecho: Ícono (con flexShrink: 0 para que no sea empujado) */}
-            <div style={{
-              padding: '8px',
-              borderRadius: '8px',
-              backgroundColor: metric.status === 'danger' ? '#fef2f2' : metric.status === 'warning' ? '#fffbeb' : '#f8fafc',
-              color: metric.status === 'danger' ? '#ef4444' : metric.status === 'warning' ? '#f59e0b' : '#64748b',
-              flexShrink: 0  /* <--- ESTA ES LA MAGIA QUE EVITA QUE SE SALGA */
-            }}>
-              <metric.icon size={24} />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </section>
 
-      {/* === MODIFICADO: Centro de Alertas Colapsable === */}
-      <section className="panel" style={{ padding: 0, overflow: 'hidden' }}>
-        <button
-          onClick={() => setIsAlertsOpen(!isAlertsOpen)}
-          style={{
-            width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '1.25rem', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h3 style={{ margin: 0 }}>Centro de Alertas Operacionales</h3>
-            {alerts.length > 0 && !isAlertsOpen && (
-              <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                {alerts.length}
-              </span>
-            )}
-          </div>
-          {isAlertsOpen ? <ChevronUp size={20} color="#64748b" /> : <ChevronDown size={20} color="#64748b" />}
-        </button>
+      {/* Centro de Alertas Colapsable */}
+      <button
+        type="button"
+        className="panel collapsible-trigger"
+        onClick={() => setIsAlertsOpen(!isAlertsOpen)}
+      >
+        <div className="collapsible-trigger-left">
+          <h3>Centro de Alertas Operacionales</h3>
+          {alerts.length > 0 && !isAlertsOpen && (
+            <span className="collapsible-badge">{alerts.length}</span>
+          )}
+        </div>
+        {isAlertsOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+      </button>
 
-        {isAlertsOpen && (
-          <div style={{ borderTop: '1px solid #e2e8f0' }}>
-            <AlertsPanel alerts={alerts} onNavigate={navigate} />
-          </div>
-        )}
-      </section>
+      {isAlertsOpen && (
+        <div className="nested-panel">
+          <AlertsPanel alerts={alerts} onNavigate={navigate} />
+        </div>
+      )}
 
       <section className="panel">
         <div className="panel-header">
@@ -395,19 +339,18 @@ function Overview() {
         </div>
       </section>
 
-      {/* === MODIFICADO: Inventario Colapsable === */}
+      {/* Inventario Colapsable */}
       <section className="panel">
         <div
-          className="panel-header"
+          className="panel-header clickable"
           onClick={() => setIsInventoryOpen(!isInventoryOpen)}
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
         >
           <h3>Estado de Inventario</h3>
-          {isInventoryOpen ? <ChevronUp size={20} color="#64748b" /> : <ChevronDown size={20} color="#64748b" />}
+          {isInventoryOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
         </div>
 
         {isInventoryOpen && (
-          <div style={{ marginTop: '1rem' }}>
+          <div className="nested-panel">
             <InventoryTable
               inventory={inventory}
               showActions={false}
@@ -482,21 +425,5 @@ function Overview() {
     </>
   );
 }
-
-// Estilos de ayuda para los items del Dropdown
-const dropdownItemStyle: CSSProperties = {
-  width: '100%',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '10px',
-  padding: '12px 16px',
-  border: 'none',
-  borderBottom: '1px solid #f1f5f9',
-  background: 'transparent',
-  cursor: 'pointer',
-  textAlign: 'left',
-  fontSize: '14px',
-  color: '#334155'
-};
 
 export default Overview;
