@@ -110,7 +110,7 @@ export const recipesData = [
         "category": "Pizzas",
         "type": "recipe",
         "status": "active",
-        "price": 11000,
+        "salePrice": 11000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -127,7 +127,7 @@ export const recipesData = [
         "category": "Pizzas",
         "type": "recipe",
         "status": "active",
-        "price": 12000,
+        "salePrice": 12000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -145,7 +145,7 @@ export const recipesData = [
         "category": "Pizzas",
         "type": "recipe",
         "status": "active",
-        "price": 13000,
+        "salePrice": 13000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -165,7 +165,7 @@ export const recipesData = [
         "category": "Pizzas",
         "type": "recipe",
         "status": "active",
-        "price": 14000,
+        "salePrice": 14000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -184,7 +184,7 @@ export const recipesData = [
         "category": "Empanadas",
         "type": "recipe",
         "status": "active",
-        "price": 3000,
+        "salePrice": 3000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -198,7 +198,7 @@ export const recipesData = [
         "category": "Empanadas",
         "type": "recipe",
         "status": "active",
-        "price": 3800,
+        "salePrice": 3800,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -213,7 +213,7 @@ export const recipesData = [
         "category": "Empanadas",
         "type": "recipe",
         "status": "active",
-        "price": 3300,
+        "salePrice": 3300,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -228,7 +228,7 @@ export const recipesData = [
         "category": "Empanadas",
         "type": "recipe",
         "status": "active",
-        "price": 3500,
+        "salePrice": 3500,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -245,7 +245,7 @@ export const recipesData = [
         "category": "Acompañamientos",
         "type": "recipe",
         "status": "active",
-        "price": 2000,
+        "salePrice": 2000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -259,7 +259,7 @@ export const recipesData = [
         "category": "Acompañamientos",
         "type": "recipe",
         "status": "active",
-        "price": 2600,
+        "salePrice": 2600,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -273,7 +273,7 @@ export const recipesData = [
         "category": "Acompañamientos",
         "type": "recipe",
         "status": "active",
-        "price": 3200,
+        "salePrice": 3200,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -287,7 +287,7 @@ export const recipesData = [
         "category": "Acompañamientos",
         "type": "recipe",
         "status": "active",
-        "price": 2800,
+        "salePrice": 2800,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -302,7 +302,7 @@ export const recipesData = [
         "category": "Acompañamientos",
         "type": "recipe",
         "status": "active",
-        "price": 6000,
+        "salePrice": 6000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -316,7 +316,7 @@ export const recipesData = [
         "category": "Acompañamientos",
         "type": "recipe",
         "status": "active",
-        "price": 2700,
+        "salePrice": 2700,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -331,7 +331,7 @@ export const recipesData = [
         "category": "Cafetería",
         "type": "recipe",
         "status": "active",
-        "price": 2000,
+        "salePrice": 2000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -344,7 +344,7 @@ export const recipesData = [
         "category": "Cafetería",
         "type": "recipe",
         "status": "active",
-        "price": 2200,
+        "salePrice": 2200,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -357,7 +357,7 @@ export const recipesData = [
         "category": "Cafetería",
         "type": "recipe",
         "status": "active",
-        "price": 2500,
+        "salePrice": 2500,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -371,7 +371,7 @@ export const recipesData = [
         "category": "Cafetería",
         "type": "recipe",
         "status": "active",
-        "price": 3000,
+        "salePrice": 3000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -385,7 +385,7 @@ export const recipesData = [
         "category": "Cafetería",
         "type": "recipe",
         "status": "active",
-        "price": 3500,
+        "salePrice": 3500,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -400,7 +400,7 @@ export const recipesData = [
         "category": "Cafetería",
         "type": "recipe",
         "status": "active",
-        "price": 4000,
+        "salePrice": 4000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -415,7 +415,7 @@ export const recipesData = [
         "category": "Bebidas",
         "type": "recipe",
         "status": "active",
-        "price": 2500,
+        "salePrice": 2500,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -430,7 +430,7 @@ export const recipesData = [
         "category": "Bebidas",
         "type": "recipe",
         "status": "active",
-        "price": 3200,
+        "salePrice": 3200,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -445,7 +445,7 @@ export const recipesData = [
         "category": "Bebidas",
         "type": "recipe",
         "status": "active",
-        "price": 3800,
+        "salePrice": 3800,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -460,7 +460,7 @@ export const recipesData = [
         "category": "Almuerzos",
         "type": "recipe",
         "status": "active",
-        "price": 7000,
+        "salePrice": 7000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -476,7 +476,7 @@ export const recipesData = [
         "category": "Almuerzos",
         "type": "recipe",
         "status": "active",
-        "price": 7000,
+        "salePrice": 7000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -491,7 +491,7 @@ export const recipesData = [
         "category": "Almuerzos",
         "type": "recipe",
         "status": "active",
-        "price": 7000,
+        "salePrice": 7000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -506,7 +506,7 @@ export const recipesData = [
         "category": "Almuerzos",
         "type": "recipe",
         "status": "active",
-        "price": 7000,
+        "salePrice": 7000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -522,7 +522,7 @@ export const recipesData = [
         "category": "Almuerzos",
         "type": "recipe",
         "status": "pending_measurement",
-        "price": 7000,
+        "salePrice": 7000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": []
