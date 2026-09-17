@@ -71,16 +71,24 @@ recipeCost = Σ(ingredient.quantity * ingredient.unitCost)
 Donde `unitCost` es el costo vigente del producto en el momento del
 cálculo.
 
-**Ejemplo — Pizza Margarita (REC001):**
+**Ejemplo ilustrativo de la fórmula** (con ingredientes planos, sin
+sub-recetas, y usando ids/costos reales de `src/data/inventoryData.js`
+como referencia):
 
-| Ingrediente | Cantidad | Unidad base | Costo unitario | Subtotal |
-|---|---|---|---|---|
-| Harina 0000 (INV001) | 500 gr | gr | CLP 3.800/kg | CLP 1.900 |
-| Agua (INV095) | 300 ml | ml | CLP 0 (agua corriente) | CLP 0 |
-| Sal (INV003) | 15 gr | gr | CLP 2.500/kg | CLP 37.5 |
-| Mozzarella (INV002) | 250 gr | gr | CLP 12.000/kg | CLP 3.000 |
-| Salsa tomate (INV004) | 100 gr | gr | CLP 4.500/kg | CLP 450 |
-| **Total** | | | | **CLP 5.387.5** |
+| Ingrediente | Cantidad | Costo unitario | Subtotal |
+|---|---|---|---|
+| Harina de Trigo (INV001) | 500 gr | CLP 1.100/kg | CLP 550 |
+| Agua Purificada (INV095) | 300 ml | CLP 0/lt | CLP 0 |
+| Sal Fina (INV024) | 15 gr | CLP 600/kg | CLP 9 |
+| Queso Mozzarella (INV002) | 250 gr | CLP 6.800/kg | CLP 1.700 |
+| Salsa/Puré de Tomate (INV032) | 100 gr | CLP 1.900/kg | CLP 190 |
+| **Total** | | | **CLP 2.449** |
+
+> Nota: la receta real `REC_PIZZA_MARGARITA` del catálogo semilla no
+> tiene la masa ni la salsa como ingredientes planos — las referencia
+> como sub-recetas (`BASE_PIZZA_DOUGH`, `BASE_PIZZA_SAUCE`). Este
+> ejemplo simplifica la fórmula base; ver §3.2 para el escalado real de
+> sub-recetas y `docs/ARCHITECTURE.md` §6 para el modelo completo.
 
 ### 3.2 Sub-Recetas (Recetas Base)
 
@@ -148,12 +156,18 @@ Al anular una venta:
 
 ### 5.1 Estados de Orden de Compra
 
+`PURCHASE_STATUSES` en `src/state/appState.js` (usar el guion, no guion
+bajo — es `"in-transit"`):
+
 | Estado | Descripción |
 |---|---|
 | `pending` | Creada pero no confirmada |
-| `in_transit` | Confirmada, en camino al restaurante |
+| `in-transit` | Confirmada, en camino al restaurante |
 | `received` | Recibida y registrada en inventario |
-| `cancelled` | Cancelada (no se recibirá) |
+
+No existe un estado `cancelled` en el modelo actual — una orden de
+compra no se puede cancelar/eliminar una vez creada, solo avanzar por
+`pending → in-transit → received`.
 
 ### 5.2 Recepción de Mercancía
 
@@ -196,74 +210,112 @@ Al registrar una merma:
 ### 6.2 Impacto en Reportes
 
 Las mermas afectan:
-- **Alertas**: merma elevada acumulada (> 5% del valor de inventario)
-- **Snapshots diarios**: `wasteTotal` del día
+- **Alertas**: merma elevada acumulada por producto — dispara si el
+  costo acumulado de merma de ese producto es ≥ CLP 10.000 **o** la
+  cantidad acumulada es ≥ 3 unidades (lo que ocurra primero; ver
+  `getOperationalAlerts` en `appState.js`). No es un porcentaje del
+  valor de inventario.
+- **Snapshots diarios**: `dailyWaste` del día (ver `DailySnapshot` en
+  `docs/MODELO_DE_DATOS.md` §2.8)
 - **Margen de utilidad**: reducción indirecta del margen bruto
 
 ## 7. Alertas Operacionales
 
 ### 7.1 Tipos de Alerta
 
+Fuente real: `getOperationalAlerts(state, referenceDate)` en
+`src/state/appState.js`. Los nombres de `severity` usados en el código
+son `"danger"`, `"warning"` e `"info"` (no `"critical"`):
+
 | Tipo | Condición | Severidad |
 |---|---|---|
-| Stock crítico | `onHand <= 0` | `critical` |
-| Stock bajo | `onHand <= minStock` | `warning` |
-| Merma elevada | `wasteTotal > 5% * inventoryValue` | `warning` |
-| OC atrasada | `in_transit` y `expectedDate < hoy` | `warning` |
-| Producto inactivo | `active = false` | `info` |
-| Sin rotación | Sin movimientos en > 30 días | `info` |
+| Quiebre de Stock | `onHand <= 0` | `danger` |
+| Stock Crítico | `0 < onHand <= minStock` | `warning` |
+| Merma Elevada | Por producto: costo acumulado de merma ≥ CLP 10.000 **o** cantidad acumulada ≥ 3 unidades | `warning` |
+| Orden pendiente/atrasada | Orden en `pending` o `in-transit` con ≥ 3 días desde `orderedDate` | `warning` si `in-transit`, `info` si `pending` |
+| Insumo sin rotación | Producto con `onHand > 0` y sin ningún movimiento registrado, o sin movimientos en los últimos 30 días | `info` |
+
+**No existe** una alerta de "Producto inactivo" — el modelo de `Product`
+no tiene un campo `active` (ver `docs/MODELO_DE_DATOS.md` §2.1), así que
+esa condición no puede evaluarse ni dispararse.
 
 ### 7.2 Resolución de Alertas
 
-Cada alerta incluye una **acción sugerida**:
-- Stock crítico/bajo → Ir a Compras (generar sugerencia)
-- Merma elevada → Ir a Inventario (revisar registros)
-- OC atrasada → Ir a Compras (seguir orden)
-- Producto inactivo → Ir a Inventario (activar/desactivar)
-- Sin rotación → Ir a Inventario (revisar uso)
+Cada alerta incluye `actionLabel`/`actionRoute` con una **acción
+sugerida**:
+- Quiebre de Stock / Stock Crítico → "Reponer en Compras" / "Crear
+  Pedido" (`/purchases`)
+- Merma Elevada → "Ver en Reportes" (`/reports`)
+- Orden pendiente/atrasada → "Recepcionar Orden" (`/purchases`)
+- Insumo sin rotación → "Ver en Inventario" (`/inventory`)
 
 ## 8. Reportes y Snapshots
 
 ### 8.1 Snapshot Diario
 
-Se genera automáticamente al final de cada día con:
-- Valor total del inventario
-- Ventas totales
-- Costo de insumos consumidos (COGS)
-- Margen bruto
-- Total de mermas
-- Compras recibidas
+Se genera en memoria (no se persiste) para cada fecha con actividad, con
+los campos reales de `DailySnapshot` (ver `docs/MODELO_DE_DATOS.md`
+§2.8):
+- Valor total del inventario a esa fecha (`inventoryValue`)
+- Cantidad de productos en quiebre/stock crítico (`outOfStockCount`,
+  `criticalStockCount`)
+- Ventas cerradas del día y su costo (`dailySales`, `dailyCost`)
+- Margen bruto y utilidad (`grossMargin`, `profit`)
+- Total de mermas del día (`dailyWaste`)
+- Compras recibidas ese día (`dailyPurchases`)
 
 ### 8.2 Métricas Clave (KPIs)
 
-| KPI | Fórmula | Umbral de alerta |
-|---|---|---|
-| Rotación de inventario | `COGS / inventoryValue` | < 1.0 (bajo) |
-| Margen bruto | `(salesTotal - COGS) / salesTotal` | < 60% (bajo) |
-| Tasa de merma | `wasteTotal / inventoryValue` | > 5% (alto) |
-| Ticket promedio | `salesTotal / numVentas` | — |
-| Cobertura de stock | `onHand / dailyUsageAvg` | < 3 días (bajo) |
+> ⚠️ De esta tabla, **solo "Margen bruto" está efectivamente calculado
+> por el sistema** (`grossMargin` en cada `DailySnapshot`,
+> `generateDailySnapshots` en `appState.js` — ver
+> `docs/MODELO_DE_DATOS.md` §2.8). `Reports.jsx` lo muestra en verde
+> ("saludable") desde 50% hacia arriba, no desde 60% como sugiere la
+> columna de umbral. Las otras cuatro filas (rotación de inventario,
+> tasa de merma como % del inventario, ticket promedio, cobertura de
+> stock en días) son **guía conceptual, no funcionalidad implementada**
+> — no hay ningún cálculo de `dailyUsageAvg`, `numVentas` agregado, ni
+> "tasa de merma" en el código actual. Si se implementan, agregarlas
+> como campos reales de `DailySnapshot` y actualizar esta tabla con su
+> ubicación real.
+
+| KPI | Fórmula | Umbral de alerta | ¿Implementado? |
+|---|---|---|---|
+| Margen bruto | `(dailySales - dailyCost) / dailySales` | Se muestra en verde desde 50% (`Reports.jsx`) | Sí — `DailySnapshot.grossMargin` |
+| Rotación de inventario | `COGS / inventoryValue` | < 1.0 (bajo) | No |
+| Tasa de merma | `wasteTotal / inventoryValue` | > 5% (alto) | No |
+| Ticket promedio | `salesTotal / numVentas` | — | No |
+| Cobertura de stock | `onHand / dailyUsageAvg` | < 3 días (bajo) | No |
 
 ## 9. Backup y Restauración
 
 ### 9.1 Formato de Backup
 
+Formato real generado por `buildBackupEnvelope` en
+`src/utils/exportUtils.js` (ver el detalle campo a campo en
+`docs/MODELO_DE_DATOS.md` §5):
+
 ```json
 {
-  "schemaVersion": 2,
-  "backupVersion": 1,
-  "createdAt": "2026-09-10T12:00:00Z",
+  "backupVersion": "1.0.0",
+  "schemaVersion": 1,
+  "createdAt": "2026-09-10T12:00:00.000Z",
+  "system": "Sistema Restaurante Los Laureles",
   "data": {
-    "products": [...],
+    "inventoryCatalog": [...],
     "inventoryMovements": [...],
-    "recipes": [...],
     "suppliers": [...],
-    "purchaseOrders": [...],
-    "sales": [...],
-    "wasteRecords": [...]
+    "recipes": [...],
+    "purchases": [...],
+    "sales": [...]
   }
 }
 ```
+
+No hay un array `wasteRecords` separado — las mermas viven dentro de
+`inventoryMovements` como movimientos `type: "waste"` (ver §6.1 y
+`docs/MODELO_DE_DATOS.md` §2.7). Las claves son `inventoryCatalog` (no
+`products`) y `purchases` (no `purchaseOrders`).
 
 ### 9.2 Validación de Backup
 

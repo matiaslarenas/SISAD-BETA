@@ -13,6 +13,7 @@ import {
   closeTicket,
   createPurchaseOrder,
   deleteProduct,
+  deleteRecipe,
   deleteSupplier,
   markPurchaseInTransit,
   normalizeLoadedState,
@@ -20,6 +21,7 @@ import {
   recordSale,
   recordWaste,
   saveTicket,
+  updateRecipe,
   updateSupplier,
   voidSale,
 } from "./appState.js";
@@ -43,6 +45,12 @@ export function appDataReducer(state, action) {
 
     case "recipe/add":
       return addRecipe(state, action.payload);
+
+    case "recipe/update":
+      return updateRecipe(state, action.payload);
+
+    case "recipe/delete":
+      return deleteRecipe(state, action.payload.recipeId);
 
     case "purchase/create":
       return createPurchaseOrder(state, action.payload);

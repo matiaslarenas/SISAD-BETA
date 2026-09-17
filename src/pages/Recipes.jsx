@@ -6,6 +6,7 @@ import {
   UtensilsCrossed,
   TrendingUp,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import Modal from "../components/Modal";
 import SearchBar from "../components/SearchBar";
@@ -31,6 +32,9 @@ const categories = [
   "Pizzas",
   "Empanadas",
   "Acompañamientos",
+  "Bebidas",
+  "Cafetería",
+  "Almuerzos",
   "Bases",
 ];
 
@@ -53,6 +57,8 @@ function Recipes() {
     recipes,
     inventory,
     addRecipe,
+    updateRecipe,
+    removeRecipe,
   } = useAppData();
 
   const [search, setSearch] =
@@ -61,6 +67,8 @@ function Recipes() {
     useState("Todas");
   const [showRecipeModal, setShowRecipeModal] =
     useState(false);
+  const [editingRecipe, setEditingRecipe] =
+    useState(null);
   const [newRecipe, setNewRecipe] =
     useState(emptyRecipe);
   const [ingredient, setIngredient] =
@@ -163,10 +171,44 @@ function Recipes() {
 
   const closeModal = () => {
     setShowRecipeModal(false);
+    setEditingRecipe(null);
     setNewRecipe(emptyRecipe);
     setIngredient(emptyIngredient);
     setRecipeErrors({});
     setIngredientErrors({});
+  };
+
+  const openNewRecipeModal = () => {
+    setEditingRecipe(null);
+    setNewRecipe(emptyRecipe);
+    setIngredient(emptyIngredient);
+    setRecipeErrors({});
+    setIngredientErrors({});
+    setShowRecipeModal(true);
+  };
+
+  const handleEditRecipe = (recipe) => {
+    setEditingRecipe(recipe);
+    setRecipeErrors({});
+    setNewRecipe({
+      name: recipe.name,
+      category: recipe.category,
+      salePrice: String(recipe.salePrice ?? ""),
+      servings: String(recipe.servings ?? "1"),
+      ingredients: recipe.ingredients || [],
+    });
+    setShowRecipeModal(true);
+  };
+
+  const handleDeleteRecipe = (recipeId) => {
+    const recipe = recipes.find(
+      (entry) => entry.id === recipeId
+    );
+
+    removeRecipe(recipeId);
+    toast.success("Receta eliminada", {
+      description: recipe?.name,
+    });
   };
 
   const handleAddIngredient = () => {
@@ -212,7 +254,7 @@ function Recipes() {
       return;
     }
 
-    addRecipe({
+    const values = {
       ...newRecipe,
       salePrice: Number(
         newRecipe.salePrice
@@ -220,7 +262,19 @@ function Recipes() {
       servings: Number(
         newRecipe.servings
       ),
-    });
+    };
+
+    if (editingRecipe) {
+      updateRecipe(editingRecipe.id, values);
+      toast.success("Receta actualizada", {
+        description: values.name,
+      });
+    } else {
+      addRecipe(values);
+      toast.success("Receta creada", {
+        description: values.name,
+      });
+    }
 
     closeModal();
   };
@@ -239,9 +293,7 @@ function Recipes() {
         <button
           type="button"
           className="primary-btn"
-          onClick={() =>
-            setShowRecipeModal(true)
-          }
+          onClick={openNewRecipeModal}
           aria-label="Crear nueva receta"
         >
           Nueva Receta
@@ -293,6 +345,8 @@ function Recipes() {
           recipes={filteredRecipes}
           inventory={inventory}
           allRecipes={recipes}
+          onEdit={handleEditRecipe}
+          onDelete={handleDeleteRecipe}
         />
       </section>
 
@@ -337,7 +391,11 @@ function Recipes() {
       <Modal
         isOpen={showRecipeModal}
         onClose={closeModal}
-        title="Nueva Receta"
+        title={
+          editingRecipe
+            ? "Editar Receta"
+            : "Nueva Receta"
+        }
         description="Las recetas calculan su costo automáticamente con el inventario vigente."
       >
         <form

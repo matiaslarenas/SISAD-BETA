@@ -94,6 +94,27 @@ equivalente). Hay que **aceptar/permitir el acceso** o los demás
 dispositivos no podrán conectarse. Si la tablet/celular no logran cargar
 la página, este es el primer punto a revisar.
 
+### 2.6 Impresora térmica (opcional)
+
+El POS puede imprimir comandas de cocina y cuentas de cliente en una
+impresora térmica USB (58mm, ESC/POS) conectada al desktop — ver
+`server/printer.js` y `docs/ARCHITECTURE.md` §3. Configuración única por
+desktop, solo Windows (`process.platform === "win32"`; en otro sistema
+operativo la impresión falla con un error explícito y el resto del
+sistema sigue funcionando):
+
+1. Panel de Control de Windows → Dispositivos e impresoras.
+2. Clic derecho en la impresora térmica → Propiedades de impresora.
+3. Pestaña "Compartir" → "Compartir esta impresora" → asignar un nombre
+   corto, por ejemplo `TICKETS`.
+4. Si el nombre compartido no es `TICKETS`, configurar la variable de
+   entorno `PRINTER_SHARE` antes de `npm start`, ej.
+   `PRINTER_SHARE=\\localhost\MiImpresora`.
+
+Sin este paso, el sistema completo (inventario, compras, recetas, POS,
+reportes) sigue funcionando con normalidad — solo fallan los botones de
+imprimir comanda/cuenta en el POS.
+
 ## 3. Build de Producción (paso interno de `npm start`)
 
 Si se necesita solo construir sin levantar el servidor:

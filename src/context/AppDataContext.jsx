@@ -185,6 +185,10 @@ export function AppDataProvider({ children }) {
       removeSupplier: (supplierId) =>
         dispatch({ type: "supplier/delete", payload: { supplierId } }),
       addRecipe: (values) => dispatch({ type: "recipe/add", payload: values }),
+      updateRecipe: (recipeId, values) =>
+        dispatch({ type: "recipe/update", payload: { recipeId, values } }),
+      removeRecipe: (recipeId) =>
+        dispatch({ type: "recipe/delete", payload: { recipeId } }),
       createPurchase: (values) =>
         dispatch({ type: "purchase/create", payload: values }),
       setPurchaseInTransit: (purchaseId) =>

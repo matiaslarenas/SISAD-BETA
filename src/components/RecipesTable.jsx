@@ -10,7 +10,11 @@ function RecipesTable({
     recipes,
     inventory,
     allRecipes = recipes,
+    onEdit,
+    onDelete,
 }) {
+    const showActions = Boolean(onEdit || onDelete);
+
     return (
         <div className="table-wrap">
             <table className="recipes-table">
@@ -23,6 +27,7 @@ function RecipesTable({
                         <th>Venta</th>
                         <th>Utilidad</th>
                         <th>Margen</th>
+                        {showActions ? <th>Acciones</th> : null}
                     </tr>
                 </thead>
 
@@ -102,6 +107,29 @@ function RecipesTable({
                                         ? "—"
                                         : `${margin.toFixed(1)}%`}
                                 </td>
+
+                                {showActions ? (
+                                    <td>
+                                        <div className="actions">
+                                            <button
+                                                type="button"
+                                                className="secondary-btn"
+                                                onClick={() => onEdit?.(recipe)}
+                                                aria-label={`Editar ${recipe.name}`}
+                                            >
+                                                Editar
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="danger-btn"
+                                                onClick={() => onDelete?.(recipe.id)}
+                                                aria-label={`Eliminar ${recipe.name}`}
+                                            >
+                                                Eliminar
+                                            </button>
+                                        </div>
+                                    </td>
+                                ) : null}
                             </tr>
                         );
                     })}

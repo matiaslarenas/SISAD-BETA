@@ -120,6 +120,69 @@ cliente** — el servidor lo usa para aplicar acciones y persistir; en el
 cliente ya no se usa para mutar estado local (eso ahora lo hace el
 servidor), pero se mantiene como referencia de qué acciones existen.
 
+#### Tipos de acción disponibles (API de `POST /api/dispatch`)
+
+Esta es la lista completa y vigente de `action.type` aceptados por
+`appDataReducer` (fuente: `src/state/rootReducer.js`). Cualquier cliente
+—incluyendo un agente externo que hable directo con la API— solo puede
+mutar el estado mandando uno de estos tipos; cualquier otro valor es
+ignorado silenciosamente (el reducer retorna el mismo estado, `default:
+return state`).
+
+| `action.type` | `payload` | Función en `appState.js` | Wrapper en `AppDataContext` |
+|---|---|---|---|
+| `product/save` | `{ productId, values }` (productId ausente = crear) | `addOrUpdateProduct` | `saveProduct(productId, values)` |
+| `product/delete` | `{ productId }` | `deleteProduct` | `removeProduct(productId)` |
+| `supplier/add` | `values` | `addSupplier` | `addSupplier(values)` |
+| `supplier/update` | `{ supplierId, values }` | `updateSupplier` | `updateSupplier(supplierId, values)` |
+| `supplier/delete` | `{ supplierId }` | `deleteSupplier` | `removeSupplier(supplierId)` |
+| `recipe/add` | `values` | `addRecipe` | `addRecipe(values)` |
+| `recipe/update` | `{ recipeId, values }` | `updateRecipe` | `updateRecipe(recipeId, values)` |
+| `recipe/delete` | `{ recipeId }` | `deleteRecipe` | `removeRecipe(recipeId)` |
+| `purchase/create` | `values` | `createPurchaseOrder` | `createPurchase(values)` |
+| `purchase/in-transit` | `{ purchaseId }` | `markPurchaseInTransit` | `setPurchaseInTransit(purchaseId)` |
+| `purchase/receive` | `{ purchaseId, receiptDate, receiptNotes, items }` | `receivePurchaseOrder` | `receivePurchase(payload)` |
+| `sale/record` | venta completa (ver §2.6 en `MODELO_DE_DATOS.md`) | `recordSale` | `recordSale(payload)` |
+| `sale/save-ticket` | ticket pendiente (mesa/comanda abierta) | `saveTicket` | `saveTicket(payload)` |
+| `sale/close-ticket` | `{ saleId, paymentMethod, notes }` | `closeTicket` | `closeTicket(payload)` |
+| `sale/void` | `{ saleId }` | `voidSale` | `voidSale(saleId)` |
+| `waste/record` | `{ productId, quantity, reason, notes, movementDate }` | `recordWaste` | `recordWaste(payload)` |
+| `state/restore` | estado completo o envoltorio `{ schemaVersion, data }` | `normalizeLoadedState` | `restoreBackupState(backupState)` |
+
+`Recipes.jsx` permite editar y eliminar recetas desde la UI (botones
+"Editar"/"Eliminar" en `RecipesTable.jsx`), reutilizando el mismo modal
+que la creación. `AppDataContext.jsx` expone `updateRecipe(recipeId,
+values)` y `removeRecipe(recipeId)` siguiendo el mismo patrón que
+`updateSupplier`/`removeSupplier`.
+
+### Cómo debe consultar y modificar el estado un sistema o agente externo
+
+El estado vigente y real del restaurante **no es** `src/data/*.js` (eso
+es solo el catálogo semilla, ver más abajo) ni debe leerse/editarse nunca
+directamente como archivo mientras el servidor está corriendo. La única
+forma correcta de leer o mutar datos en vivo es la API HTTP del
+servidor:
+
+- **Leer el estado completo**: `GET /api/state` → `{ revision, data }`,
+  donde `data` tiene la forma documentada en `docs/MODELO_DE_DATOS.md`
+  (`inventoryCatalog`, `inventoryMovements`, `suppliers`, `recipes`,
+  `purchases`, `sales`).
+- **Mutar el estado**: `POST /api/dispatch` con body
+  `{ "type": "<uno de la tabla de arriba>", "payload": { ... } }`. La
+  respuesta es `{ revision, data }` con el estado ya actualizado y
+  persistido.
+- **Nunca editar `server/data/app-state.json` a mano mientras el
+  servidor está corriendo.** El servidor mantiene el estado en memoria y
+  lo persiste a disco después de cada `dispatch`; un archivo editado por
+  fuera se sobrescribe en la próxima mutación (o, peor, una escritura
+  concurrente del servidor puede pisar la edición manual). Si hace falta
+  inspeccionar el JSON en disco, hacerlo en modo solo lectura y con el
+  servidor detenido (ver `docs/GUIA_DE_DESARROLLO.md` §7).
+- No hay autenticación en la API (ver `docs/GUIA_DE_DEPLOYMENT.md` §7):
+  cualquier dispositivo en la red WiFi local, incluyendo un agente
+  externo corriendo en la misma red, puede leer y escribir el estado
+  completo sin credenciales.
+
 ### `server/index.js`
 Servidor HTTP nativo. Responsabilidades:
 - Sirve el build de producción (`dist/`) con fallback de SPA (cualquier
@@ -132,6 +195,11 @@ Servidor HTTP nativo. Responsabilidades:
 - `POST /api/dispatch` → recibe una acción, la aplica vía
   `appDataReducer`, persiste con `saveState()`, y devuelve el nuevo
   estado + revisión.
+- `POST /api/print-ticket` → recibe `{ kind: "kitchen" | "customer", ...venta }`
+  y envía un ticket a la impresora térmica USB del desktop (ver
+  `server/printer.js` más abajo). **No es una acción de `dispatch`**: no
+  pasa por `appDataReducer` ni muta/persiste el estado — es un efecto
+  físico (imprimir) sobre una venta que ya existe.
 - Mantiene el estado en memoria (`let state`) para no leer el disco en
   cada request; solo escribe a disco tras cada mutación.
 
@@ -148,6 +216,25 @@ un corte de luz a mitad de escritura no corrompa `app-state.json`.
 > `new URL(...).pathname` directamente rompe en Windows (produce rutas
 > del tipo `C:\C:\Users\...`) — bug real encontrado y corregido durante
 > la migración a servidor local.
+
+### `server/printer.js`
+Impresión de tickets en la impresora térmica USB (58mm, protocolo
+ESC/POS) conectada al desktop, invocado desde `POST /api/print-ticket`.
+Sin dependencias externas: arma los bytes ESC/POS a mano
+(`buildKitchenComandaTicket`, `buildCustomerReceiptTicket`) y los manda
+al driver de Windows ya instalado vía un recurso de impresora compartida
+(`copy /b` al share `\\localhost\TICKETS`, configurable con la variable
+de entorno `PRINTER_SHARE`). Solo implementado para `process.platform
+=== "win32"`. Dos tipos de ticket:
+- **Comanda de cocina** (`kind: "kitchen"`): ítem y cantidad en letra
+  grande, sin precios — la cocina no cobra.
+- **Cuenta del cliente** (`kind: "customer"`): detalle con precios,
+  total y sugerencia de propina del 10%.
+
+`POS.jsx` llama a `printTicket({ kind, ...venta })` (wrapper de
+`AppDataContext`) al enviar una comanda a cocina o al cerrar/cobrar una
+mesa. Ver también `docs/GUIA_DE_USUARIO.md` §6 para el flujo desde la
+UI.
 
 ### `src/context/AppDataContext.jsx`
 Único React Context de la aplicación, ahora en cada dispositivo cliente.
@@ -181,9 +268,12 @@ in-place; cada acción retorna un nuevo objeto de estado (spread de
 - **Snapshot de inventario**: `buildInventorySnapshot(catalog, movements)`
   — proyección pura sobre movimientos. Ver §5.
 - **Reducers de dominio**: `addOrUpdateProduct`, `deleteProduct`,
-  `addSupplier/updateSupplier/deleteSupplier`, `addRecipe`,
+  `addSupplier/updateSupplier/deleteSupplier`,
+  `addRecipe/updateRecipe/deleteRecipe`,
   `createPurchaseOrder`, `markPurchaseInTransit`, `receivePurchaseOrder`,
-  `recordSale`, `voidSale`, `recordWaste`.
+  `recordSale`, `saveTicket`, `closeTicket`, `voidSale`, `recordWaste`.
+  Ver la tabla completa de acciones (`action.type` ↔ función) más arriba,
+  en §3, bajo `src/state/rootReducer.js`.
 - **Motor de alertas**: `getOperationalAlerts(state, referenceDate)`.
 - **Planificador de compras**: `generatePurchaseSuggestions(state)`.
 - **Snapshots operacionales**: `generateDailySnapshots(state, daysLimit)`.
@@ -222,17 +312,29 @@ Excel en español.
 ```
 server/
   index.js        Servidor HTTP nativo (sin dependencias externas):
-                   sirve dist/ + API (/api/state, /api/dispatch).
+                   sirve dist/ + API (/api/state, /api/dispatch,
+                   /api/print-ticket).
   persistence.js  Persistencia en disco (server/data/app-state.json).
+  printer.js      Impresión ESC/POS de comandas y cuentas (ver §3).
   data/           Estado en vivo del servidor. No se versiona (.gitignore).
 src/
   components/     Componentes de presentación reutilizables (tablas, modales,
                    tarjetas de métricas, filtros). Sin lógica de negocio.
   context/        AppDataContext.jsx — único Context de la app. Consulta
                    al servidor vía fetch/polling (ver §3).
-  data/           Datos semilla (catálogo, movimientos, recetas, compras,
-                   ventas, proveedores). Usados por createDefaultAppState()
-                   solo si el servidor arranca sin app-state.json previo.
+  data/           **Solo catálogo semilla** (inventario, movimientos,
+                   recetas, compras, ventas, proveedores, categorías). Usado
+                   por createDefaultAppState() únicamente la primera vez que
+                   el servidor arranca sin `app-state.json` previo (una
+                   instalación nueva). Una vez que existe
+                   `server/data/app-state.json`, estos archivos ya NO se
+                   leen — el estado real y vigente vive exclusivamente en
+                   ese JSON y se consulta/modifica vía la API (ver "Cómo
+                   debe consultar y modificar el estado un sistema o agente
+                   externo" en §3). Editar `src/data/recipesData.js` o
+                   `src/data/inventoryData.js` después de la primera
+                   instalación no tiene ningún efecto sobre los datos reales
+                   del restaurante.
   pages/          Una página por sección de navegación: Overview, Inventory,
                    Purchases, Recipes, POS, Reports, Suppliers.
   state/          appState.js (dominio puro, ver §3) y rootReducer.js
@@ -381,6 +483,15 @@ recordSale()                   → movimientos de inventario SIEMPRE contra
   (`status: "pending_measurement"`, `yieldQuantity` ausente), su costo
   es `0` y se propaga así a las recetas que la usan — es una señal
   explícita de "dato pendiente", no un error silencioso.
+- **El modelo no tiene concepto de "variante" de una receta.** Cuando un
+  mismo producto existe en varios sabores/versiones (ej. los tres Jugos
+  Naturales — Frutilla `REC_JUGO_NATURAL`, Frambuesa
+  `REC_JUGO_FRAMBUESA`, Arándano `REC_JUGO_ARANDANO`, todos 480cc a
+  $2.500), cada sabor es una `Recipe` independiente y completa, con su
+  propio `id`, `name` e `ingredients` — no hay un campo tipo `variantOf`
+  ni un array de variantes anidado. Es una decisión de diseño deliberada
+  para no agregar una capa de modelado nueva mientras cada sabor tenga
+  costeo, stock y venta idénticos en estructura a cualquier otra receta.
 
 ## 7. Otros módulos de dominio (referencia rápida)
 

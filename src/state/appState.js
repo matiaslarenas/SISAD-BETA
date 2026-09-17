@@ -789,6 +789,26 @@ export function addRecipe(state, values) {
   };
 }
 
+export function updateRecipe(state, { recipeId, values }) {
+  return {
+    ...state,
+    recipes: state.recipes.map((recipe) =>
+      recipe.id === recipeId
+        ? normalizeRecipe({ ...recipe, ...values, id: recipe.id })
+        : recipe
+    ),
+  };
+}
+
+export function deleteRecipe(state, recipeId) {
+  return {
+    ...state,
+    recipes: state.recipes.filter(
+      (recipe) => recipe.id !== recipeId
+    ),
+  };
+}
+
 export function createPurchaseOrder(
   state,
   values

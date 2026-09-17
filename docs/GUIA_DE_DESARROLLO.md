@@ -149,14 +149,21 @@ completo en `docs/ARCHITECTURE.md` §3). Sigue exponiendo lo mismo al
   - `purchaseSuggestions` — sugerencias de compra
   - `dailySnapshots` — snapshots diarios
 
-- **Acciones** (wrappers de `dispatch`):
+- **Acciones** (wrappers de `dispatch`, ver `src/context/AppDataContext.jsx`):
   - `saveProduct`, `removeProduct`
   - `addSupplier`, `updateSupplier`, `removeSupplier`
-  - `addRecipe`, `updateRecipe`
+  - `addRecipe`, `updateRecipe`, `removeRecipe`
   - `createPurchase`, `setPurchaseInTransit`, `receivePurchase`
-  - `recordSale`, `voidSale`
+  - `recordSale`, `saveTicket`, `closeTicket`, `generateSaleId`, `voidSale`
   - `recordWaste`
   - `restoreBackupState`
+  - `printTicket` — **no es un `dispatch`**: llama a
+    `POST /api/print-ticket` directo (imprime en la impresora térmica
+    del desktop, ver `server/printer.js`); no muta ni persiste estado.
+
+  `Recipes.jsx`/`RecipesTable.jsx` ya tienen UI para editar y eliminar
+  una receta (mismo patrón que `updateSupplier`/`removeSupplier`). Ver
+  la tabla completa de acciones en `docs/ARCHITECTURE.md` §3.
 
 ### 4.2 appState.js
 
@@ -165,7 +172,12 @@ Núcleo de dominio. Todas las funciones son puras:
 
 - **Normalización**: `normalizeLoadedState`, `normalizeRecipe`, etc.
 - **Snapshot**: `buildInventorySnapshot(catalog, movements)`
-- **Reducers**: `addOrUpdateProduct`, `deleteProduct`, `recordSale`, etc.
+- **Reducers**: `addOrUpdateProduct`, `deleteProduct`,
+  `addSupplier`/`updateSupplier`/`deleteSupplier`,
+  `addRecipe`/`updateRecipe`/`deleteRecipe`, `createPurchaseOrder`,
+  `markPurchaseInTransit`, `receivePurchaseOrder`, `recordSale`,
+  `saveTicket`, `closeTicket`, `voidSale`, `recordWaste`. Lista completa
+  de `action.type` ↔ función en `docs/ARCHITECTURE.md` §3.
 - **Alertas**: `getOperationalAlerts(state, referenceDate)`
 - **Sugerencias**: `generatePurchaseSuggestions(state)`
 - **Snapshots**: `generateDailySnapshots(state, daysLimit)`
@@ -191,7 +203,8 @@ tests/
 ├── validation.test.js     # Validadores de formularios
 ├── waste.test.js          # Registro de mermas
 ├── alerts.test.js         # Motor de alertas
-└── invariants.test.js     # Invariantes matemáticas
+├── invariants.test.js     # Invariantes matemáticas
+└── printer.test.js        # Formato ESC/POS de tickets (server/printer.js)
 ```
 
 ### 5.2 Cómo Escribir Tests

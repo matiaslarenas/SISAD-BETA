@@ -195,7 +195,24 @@ muestra como costo por unidad de rendimiento (ej. $/un, $/ml).
 
 > Al cobrar, el stock se reduce automáticamente y se registra la venta.
 
-### 6.4 Anular una Venta
+### 6.4 Imprimir Comanda y Cuenta
+
+Si el desktop tiene una impresora térmica configurada (ver
+`docs/GUIA_DE_DEPLOYMENT.md` y `server/printer.js`):
+
+- **Comanda a cocina**: envía a la impresora los ítems y cantidades del
+  pedido actual (sin precios) para que cocina prepare. Incluye la nota
+  del pedido si se agregó una.
+- **Cuenta del cliente**: envía a la impresora el detalle con precios,
+  el total y una sugerencia de propina del 10%.
+- También se puede **reimprimir la cuenta** de una venta ya cerrada
+  desde el historial.
+
+> Si la impresora no está compartida/configurada, el sistema muestra un
+> error al intentar imprimir mientras el resto del POS sigue funcionando
+> con normalidad (la impresión es independiente de registrar la venta).
+
+### 6.5 Anular una Venta
 
 1. En el ticket, haz clic en **Anular**.
 2. Confirma la anulación.

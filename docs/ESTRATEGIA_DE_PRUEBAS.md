@@ -131,7 +131,19 @@ Prueban el motor de alertas:
 - Detección de sin rotación
 - Validación de backups
 
-### 3.6 Pruebas de Invariantes
+### 3.6 Pruebas de Impresión de Tickets
+
+**Ubicación**: `tests/printer.test.js`
+
+Prueban el formateo ESC/POS puro de `server/printer.js`
+(`buildKitchenComandaTicket`, `buildCustomerReceiptTicket`): que el
+buffer generado empiece con el comando de inicialización correcto, que
+la comanda de cocina no incluya precios, que la cuenta del cliente sí
+los incluya junto con la sugerencia de propina, etc. No prueban el envío
+real a la impresora (`printTicketBuffer`, que depende de `exec`/Windows)
+ni la ruta HTTP `/api/print-ticket`.
+
+### 3.7 Pruebas de Invariantes
 
 **Ubicación**: `tests/invariants.test.js`
 
@@ -157,13 +169,18 @@ Pruebas matemáticas que certifican invariantes del sistema:
 | Mermas | ✅ Alta | `waste.test.js` |
 | Alertas | ✅ Alta | `alerts.test.js` |
 | Invariantes | ✅ Alta | `invariants.test.js` |
+| Formato de tickets ESC/POS | ✅ Alta | `printer.test.js` |
 
 ### 4.2 Qué NO está cubierto
 
 - **Interfaz de usuario**: clicks, navegación, renderizado visual.
-- **Servidor HTTP** (`server/index.js`): las rutas `/api/state` y
-  `/api/dispatch` se prueban manualmente (con `curl` o desde el
-  navegador), no hay tests automáticos de la capa HTTP todavía.
+- **Servidor HTTP** (`server/index.js`): las rutas `/api/state`,
+  `/api/dispatch` y `/api/print-ticket` se prueban manualmente (con
+  `curl` o desde el navegador), no hay tests automáticos de la capa HTTP
+  todavía. El **formato** de los tickets (bytes ESC/POS generados por
+  `server/printer.js`) sí está cubierto por `printer.test.js`; lo que
+  falta es el envío real a la impresora (`printTicketBuffer`) y el
+  ruteo HTTP en sí.
 - **Sincronización multi-dispositivo**: el comportamiento real de
   polling entre desktop/tablet/celular se valida manualmente, no con
   tests automáticos.

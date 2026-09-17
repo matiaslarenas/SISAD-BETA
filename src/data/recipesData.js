@@ -411,7 +411,7 @@ export const recipesData = [
     },
     {
         "id": "REC_JUGO_NATURAL",
-        "name": "Jugo Natural (480cc)",
+        "name": "Jugo Natural de Frutilla (480cc)",
         "category": "Bebidas",
         "type": "recipe",
         "status": "active",
@@ -420,6 +420,36 @@ export const recipesData = [
         "yieldUnit": "un",
         "ingredients": [
             { "productId": "INV028", "quantity": 150, "unit": "gr" }, // Frutilla Congelada/Natural
+            { "productId": "INV095", "quantity": 250, "unit": "ml" }, // Agua Purificada
+            { "productId": "INV010", "quantity": 30, "unit": "gr" }   // Azúcar Granulada
+        ]
+    },
+    {
+        "id": "REC_JUGO_FRAMBUESA",
+        "name": "Jugo Natural de Frambuesa (480cc)",
+        "category": "Bebidas",
+        "type": "recipe",
+        "status": "active",
+        "salePrice": 2500,
+        "yieldQuantity": 1,
+        "yieldUnit": "un",
+        "ingredients": [
+            { "productId": "INV029", "quantity": 150, "unit": "gr" }, // Frambuesa Congelada
+            { "productId": "INV095", "quantity": 250, "unit": "ml" }, // Agua Purificada
+            { "productId": "INV010", "quantity": 30, "unit": "gr" }   // Azúcar Granulada
+        ]
+    },
+    {
+        "id": "REC_JUGO_ARANDANO",
+        "name": "Jugo Natural de Arándano (480cc)",
+        "category": "Bebidas",
+        "type": "recipe",
+        "status": "active",
+        "salePrice": 2500,
+        "yieldQuantity": 1,
+        "yieldUnit": "un",
+        "ingredients": [
+            { "productId": "INV030", "quantity": 150, "unit": "gr" }, // Arándano Congelado
             { "productId": "INV095", "quantity": 250, "unit": "ml" }, // Agua Purificada
             { "productId": "INV010", "quantity": 30, "unit": "gr" }   // Azúcar Granulada
         ]
