@@ -25,6 +25,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { appDataReducer } from "../src/state/rootReducer.js";
+import { DomainError } from "../src/state/appState.js";
 import { loadState, saveState } from "./persistence.js";
 import {
   buildKitchenComandaTicket,
@@ -141,7 +142,11 @@ async function handleApi(req, res, pathname) {
       sendJson(res, 200, { revision, data: newState });
     } catch (error) {
       console.error("[api/dispatch]", error);
-      sendJson(res, 400, { error: "No se pudo procesar la acción." });
+      // Solo las reglas de negocio llevan un mensaje apto para la caja;
+      // cualquier otro error se responde genérico.
+      const message =
+        error instanceof DomainError ? error.message : "No se pudo procesar la acción.";
+      sendJson(res, 400, { error: message });
     }
     return;
   }

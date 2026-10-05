@@ -6,6 +6,7 @@ import {
   buildInventorySnapshot,
   closeTicket,
   createPurchaseOrder,
+  DomainError,
   getTodayISODate,
   normalizeLoadedState,
   receivePurchaseOrder,
@@ -635,7 +636,8 @@ test(
 
     assert.throws(
       () => saveTicket(closed, { id: "VTA-1001", ...TICKET_PAYLOAD }),
-      /VTA-1001/
+      (error) =>
+        error instanceof DomainError && /VTA-1001 ya fue cobrada/.test(error.message)
     );
   }
 );
@@ -649,7 +651,8 @@ test(
 
     assert.throws(
       () => saveTicket(voided, { id: "VTA-1001", ...TICKET_PAYLOAD }),
-      /VTA-1001/
+      (error) =>
+        error instanceof DomainError && /VTA-1001 ya fue anulada/.test(error.message)
     );
   }
 );
