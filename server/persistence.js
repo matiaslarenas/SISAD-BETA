@@ -17,44 +17,56 @@ import {
 } from "../src/state/appState.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// `dataDir` es configurable solo para los tests; el servidor y los
+// scripts usan siempre server/data.
 const DATA_DIR = path.join(__dirname, "data");
-const STATE_FILE = path.join(DATA_DIR, "app-state.json");
-const TMP_FILE = path.join(DATA_DIR, "app-state.json.tmp");
+const STATE_FILE_NAME = "app-state.json";
 
-function ensureDataDir() {
-  if (!existsSync(DATA_DIR)) {
-    mkdirSync(DATA_DIR, { recursive: true });
+function ensureDataDir(dataDir) {
+  if (!existsSync(dataDir)) {
+    mkdirSync(dataDir, { recursive: true });
   }
 }
 
-export function loadState() {
-  ensureDataDir();
+export class StateFileError extends Error {}
 
-  if (!existsSync(STATE_FILE)) {
+export function loadState(dataDir = DATA_DIR) {
+  ensureDataDir(dataDir);
+  const stateFile = path.join(dataDir, STATE_FILE_NAME);
+
+  // Solo una instalación nueva (sin archivo) parte del estado por defecto.
+  if (!existsSync(stateFile)) {
     const defaultState = createDefaultAppState();
-    saveState(defaultState);
+    saveState(defaultState, dataDir);
     return defaultState;
   }
 
+  // Si el archivo existe pero no se puede leer, se detiene sin tocarlo.
+  // Reemplazarlo por el estado por defecto borraría los datos reales, y
+  // renombrarlo haría que el siguiente arranque creara la semilla en
+  // silencio. El archivo queda tal cual para repararlo o restaurar un
+  // respaldo.
   try {
-    const raw = readFileSync(STATE_FILE, "utf-8");
+    const raw = readFileSync(stateFile, "utf-8");
     return normalizeLoadedState(JSON.parse(raw));
   } catch (error) {
-    console.error(
-      "[persistence] No se pudo leer app-state.json, se usa el estado por defecto:",
-      error.message
+    throw new StateFileError(
+      `No se pudo leer ${stateFile} (${error.message}). ` +
+        "El archivo no se modificó. Para recuperar, guarda una copia de él y " +
+        "reemplázalo por el último respaldo (el .json descargado con Panel → " +
+        "Respaldar Datos sirve tal cual), y vuelve a iniciar.",
+      { cause: error }
     );
-    const defaultState = createDefaultAppState();
-    saveState(defaultState);
-    return defaultState;
   }
 }
 
 // Escritura atómica: escribe a un archivo temporal y luego renombra, para
 // que una caída a mitad de escritura (corte de luz, etc.) nunca deje el
 // archivo de estado corrupto a medio escribir.
-export function saveState(state) {
-  ensureDataDir();
-  writeFileSync(TMP_FILE, JSON.stringify(state), "utf-8");
-  renameSync(TMP_FILE, STATE_FILE);
+export function saveState(state, dataDir = DATA_DIR) {
+  ensureDataDir(dataDir);
+  const stateFile = path.join(dataDir, STATE_FILE_NAME);
+  const tmpFile = `${stateFile}.tmp`;
+  writeFileSync(tmpFile, JSON.stringify(state), "utf-8");
+  renameSync(tmpFile, stateFile);
 }

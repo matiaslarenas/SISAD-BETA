@@ -50,7 +50,15 @@ const MIME_TYPES = {
 
 // --- Estado en memoria + persistencia en disco -----------------------
 
-let state = loadState();
+let state;
+try {
+  state = loadState();
+} catch (error) {
+  // Un app-state.json ilegible detiene el arranque: partir de la semilla
+  // sobrescribiría los datos reales en la primera acción.
+  console.error(`\nNo se pudo iniciar el servidor.\n${error.message}\n`);
+  process.exit(1);
+}
 let revision = 1;
 
 function applyAction(action) {
