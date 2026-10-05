@@ -1134,6 +1134,18 @@ export function saveTicket(
   state,
   { id, tableOrCustomer, paymentMethod, items, notes }
 ) {
+  // Un id que ya pertenece a una venta cobrada o anulada no se puede
+  // reutilizar: se borrarían sus movimientos de stock y quedaría el id
+  // duplicado. Se rechaza para que el servidor responda con error.
+  const usedId = id?.trim()
+    ? state.sales.find((s) => s.id === id.trim())
+    : null;
+  if (usedId && usedId.status !== SALE_STATUSES.PENDING) {
+    throw new Error(
+      `La venta ${usedId.id} ya está ${usedId.status} y no se puede modificar como pedido.`
+    );
+  }
+
   const existing = id
     ? state.sales.find(
       (s) => s.id === id && s.status === SALE_STATUSES.PENDING
