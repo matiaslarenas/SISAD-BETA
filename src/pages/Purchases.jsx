@@ -2,10 +2,21 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAppData } from "../context/AppDataContext";
 import { toast } from "sonner";
-import { Zap, Plus, Check } from "lucide-react";
+import { Zap, Plus, Check, PackageCheck } from "lucide-react";
+import DirectPurchaseModal from "../components/DirectPurchaseModal";
+import { formatCurrency } from "../utils/format";
+
+const RECENT_PURCHASES_LIMIT = 5;
 
 function Purchases() {
-  const { inventory, suppliers } = useAppData();
+  const { inventory, suppliers, purchases } = useAppData();
+  const [showDirectPurchase, setShowDirectPurchase] = useState(false);
+
+  // Últimas compras ya recibidas (las registradas con "Registrar compra").
+  const recentPurchases = purchases
+    .filter((purchase) => purchase.status === "received")
+    .sort((a, b) => String(b.receiptDate || "").localeCompare(String(a.receiptDate || "")))
+    .slice(0, RECENT_PURCHASES_LIMIT);
   const [searchParams, setSearchParams] = useSearchParams();
   const [draftItems, setDraftItems] = useState([]);
   const [selectedSupplier, setSelectedSupplier] = useState("");
@@ -149,6 +160,70 @@ function Purchases() {
 
   return (
     <div className="purchases-page">
+      {/* 📦 COMPRAS RECIBIDAS: registrar lo que llegó y sube el stock */}
+      <section className="panel" style={{ marginBottom: "24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <PackageCheck size={20} color="var(--primary)" />
+            <h3>Compras recibidas</h3>
+          </div>
+
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => setShowDirectPurchase(true)}
+          >
+            + Registrar compra
+          </button>
+        </div>
+
+        <p style={{ fontSize: "0.88rem", color: "gray", marginTop: "6px" }}>
+          Registra aquí lo que compraste y ya llegó. El stock sube y el precio pagado pasa a ser el costo del producto.
+        </p>
+
+        {recentPurchases.length > 0 ? (
+          <div className="table-wrap" style={{ marginTop: "12px" }}>
+            <table className="table" style={{ width: "100%" }}>
+              <thead>
+                <tr>
+                  <th>Compra</th>
+                  <th>Fecha</th>
+                  <th>Proveedor</th>
+                  <th>Productos</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentPurchases.map((purchase) => (
+                  <tr key={purchase.id}>
+                    <td>{purchase.id}</td>
+                    <td>{purchase.receiptDateLabel}</td>
+                    <td>{purchase.supplier}</td>
+                    <td>
+                      {purchase.items
+                        .map((item) => `${item.productName} (${item.receivedQuantity} ${item.purchaseUnit})`)
+                        .join(", ")}
+                    </td>
+                    <td>
+                      <strong>{formatCurrency(purchase.amount)}</strong>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p style={{ marginTop: "12px", color: "gray" }}>
+            Aún no hay compras registradas.
+          </p>
+        )}
+      </section>
+
+      <DirectPurchaseModal
+        isOpen={showDirectPurchase}
+        onClose={() => setShowDirectPurchase(false)}
+      />
+
       {/* ⚡ SECCIÓN 1: PLANIFICADOR INTELIGENTE DE COMPRAS */}
       <section className="panel" style={{ marginBottom: "24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

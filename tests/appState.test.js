@@ -10,10 +10,12 @@ import {
   getTodayISODate,
   normalizeLoadedState,
   receivePurchaseOrder,
+  recordDirectPurchase,
   recordSale,
   saveTicket,
   voidSale,
 } from "../src/state/appState.js";
+import { appDataReducer } from "../src/state/rootReducer.js";
 
 test(
   "buildInventorySnapshot derives stock and cost from movements",
@@ -669,5 +671,121 @@ test(
 
     assert.equal(updated.sales.length, 1);
     assert.equal(panOnHand(updated), 17);
+  }
+);
+
+// --- Compra directa: se registra ya recibida, en un solo paso ---
+
+const DIRECT_PURCHASE = {
+  supplier: "Panadería Central",
+  purchaseDate: "2026-10-05",
+  notes: "Boleta 1234",
+  items: [{ productId: "INV-PAN", quantity: "12", unitCost: "350" }],
+};
+
+test(
+  "recordDirectPurchase adds stock with a purchase movement at the price paid",
+  () => {
+    const next = recordDirectPurchase(buildTicketState(), DIRECT_PURCHASE);
+
+    assert.equal(panOnHand(next), 32);
+
+    const movement = next.inventoryMovements.at(-1);
+    assert.equal(movement.type, "purchase");
+    assert.equal(movement.productId, "INV-PAN");
+    assert.equal(movement.quantity, 12);
+    assert.equal(movement.unitCost, 350);
+    assert.equal(movement.movementDate, "2026-10-05");
+    assert.equal(movement.reference, next.purchases.at(-1).id);
+  }
+);
+
+test(
+  "recordDirectPurchase stores the purchase as received and updates the current cost",
+  () => {
+    const state = buildTicketState();
+    const next = recordDirectPurchase(state, DIRECT_PURCHASE);
+
+    assert.equal(next.purchases.length, state.purchases.length + 1);
+    const purchase = next.purchases.at(-1);
+    assert.equal(purchase.status, "received");
+    assert.equal(purchase.supplier, "Panadería Central");
+    assert.equal(purchase.orderedDate, "2026-10-05");
+    assert.equal(purchase.receiptDate, "2026-10-05");
+    assert.equal(purchase.amount, 4200);
+
+    assert.equal(
+      next.inventoryCatalog.find((p) => p.id === "INV-PAN").costPerUnit,
+      350
+    );
+    // El costo de la compra anterior queda congelado.
+    assert.equal(
+      next.inventoryMovements.find((m) => m.id === "MOV-PAN-1").unitCost,
+      300
+    );
+  }
+);
+
+test(
+  "recordDirectPurchase gives a new id even when older purchases left gaps",
+  () => {
+    const state = {
+      ...buildTicketState(),
+      purchases: [
+        { id: "OC-1001", supplier: "A", status: "received", items: [] },
+        { id: "OC-1003", supplier: "B", status: "received", items: [] },
+      ],
+    };
+
+    const next = recordDirectPurchase(state, DIRECT_PURCHASE);
+
+    assert.equal(next.purchases.at(-1).id, "OC-1004");
+  }
+);
+
+test(
+  "recordDirectPurchase rejects an invalid purchase without changing the state",
+  () => {
+    const state = buildTicketState();
+
+    assert.throws(
+      () => recordDirectPurchase(state, { ...DIRECT_PURCHASE, items: [] }),
+      (error) => error instanceof DomainError && /al menos un producto/.test(error.message)
+    );
+    assert.throws(
+      () =>
+        recordDirectPurchase(state, {
+          ...DIRECT_PURCHASE,
+          items: [{ productId: "INV-PAN", quantity: "12", unitCost: "0" }],
+        }),
+      (error) => error instanceof DomainError && /costo unitario/.test(error.message)
+    );
+    assert.equal(panOnHand(state), 20);
+  }
+);
+
+test(
+  "recordDirectPurchase rejects a product that is not in the inventory",
+  () => {
+    assert.throws(
+      () =>
+        recordDirectPurchase(buildTicketState(), {
+          ...DIRECT_PURCHASE,
+          items: [{ productId: "INV-NO-EXISTE", quantity: "1", unitCost: "100" }],
+        }),
+      (error) => error instanceof DomainError && /no existe en el inventario/.test(error.message)
+    );
+  }
+);
+
+test(
+  "the root reducer applies purchase/record-direct so every device can register purchases",
+  () => {
+    const next = appDataReducer(buildTicketState(), {
+      type: "purchase/record-direct",
+      payload: DIRECT_PURCHASE,
+    });
+
+    assert.equal(panOnHand(next), 32);
   }
 );

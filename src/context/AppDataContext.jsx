@@ -195,6 +195,8 @@ export function AppDataProvider({ children }) {
         dispatch({ type: "purchase/in-transit", payload: { purchaseId } }),
       receivePurchase: (payload) =>
         dispatch({ type: "purchase/receive", payload }),
+      recordDirectPurchase: (payload) =>
+        dispatch({ type: "purchase/record-direct", payload }),
       restoreBackupState: (backupState) =>
         dispatch({ type: "state/restore", payload: backupState }),
       recordSale: (payload) => dispatch({ type: "sale/record", payload }),
