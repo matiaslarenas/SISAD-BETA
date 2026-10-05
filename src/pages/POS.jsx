@@ -57,6 +57,9 @@ export default function POS() {
   const [activeTicketId, setActiveTicketId] = useState(null);
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState("");
+  // Bloquea los botones mientras el servidor responde, para que un doble
+  // toque no despache dos veces el mismo ticket.
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Categories list
   const categories = useMemo(() => {
@@ -307,7 +310,9 @@ export default function POS() {
 
   // Guarda la mesa/pedido actual como pendiente (comanda enviada a cocina):
   // el stock se reserva de inmediato, pero la venta aún no se cobra.
-  const handleSaveTicket = () => {
+  const handleSaveTicket = async () => {
+    if (isSubmitting) return;
+
     const salePayload = {
       tableOrCustomer,
       paymentMethod,
@@ -329,8 +334,17 @@ export default function POS() {
       return;
     }
 
+    // dispatch ya muestra el error del servidor con un toast y lo relanza:
+    // si falla, se conserva el formulario para reintentar.
     const ticketId = activeTicketId || generateSaleId();
-    saveTicket({ id: ticketId, ...salePayload });
+    setIsSubmitting(true);
+    try {
+      await saveTicket({ id: ticketId, ...salePayload });
+    } catch {
+      return;
+    } finally {
+      setIsSubmitting(false);
+    }
 
     toast.success(`Pedido guardado para ${tableOrCustomer}`, {
       description: "Stock reservado. La mesa quedó activa para seguir agregando productos o cobrar.",
@@ -338,8 +352,9 @@ export default function POS() {
     resetCurrentForm();
   };
 
-  const handleCompleteSale = (e) => {
+  const handleCompleteSale = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     const salePayload = {
       tableOrCustomer,
@@ -365,9 +380,21 @@ export default function POS() {
     // Sincroniza el ticket (crea o actualiza) con los ítems actuales y
     // luego lo cierra: garantiza que el stock descontado siempre coincide
     // con lo que finalmente se cobró, venga o no de una mesa pendiente.
+    // closeTicket debe esperar a saveTicket: si llega antes al servidor no
+    // encuentra el ticket pendiente y no cierra nada.
     const ticketId = activeTicketId || generateSaleId();
-    saveTicket({ id: ticketId, ...salePayload });
-    closeTicket({ saleId: ticketId, paymentMethod, notes: ticketNotes });
+    setIsSubmitting(true);
+    try {
+      await saveTicket({ id: ticketId, ...salePayload });
+      // Si el cierre falla, el reintento debe actualizar este mismo ticket
+      // pendiente en vez de crear otro con un id nuevo.
+      setActiveTicketId(ticketId);
+      await closeTicket({ saleId: ticketId, paymentMethod, notes: ticketNotes });
+    } catch {
+      return;
+    } finally {
+      setIsSubmitting(false);
+    }
 
     toast.success(`¡Venta registrada con éxito!`, {
       description: `${tableOrCustomer} • ${formatCurrency(ticketTotals.totalAmount)} (Stock descontado)`,
@@ -436,9 +463,13 @@ export default function POS() {
     }
   };
 
-  const handleCancelPendingTicket = (saleId) => {
+  const handleCancelPendingTicket = async (saleId) => {
     if (window.confirm(`¿Anular el pedido pendiente ${saleId}? Se reintegrará el stock reservado.`)) {
-      voidSale(saleId);
+      try {
+        await voidSale(saleId);
+      } catch {
+        return;
+      }
       if (activeTicketId === saleId) {
         resetCurrentForm();
       }
@@ -448,9 +479,13 @@ export default function POS() {
     }
   };
 
-  const handleVoidSale = (saleId) => {
+  const handleVoidSale = async (saleId) => {
     if (window.confirm(`¿Estás seguro de anular la venta ${saleId}? Se reintegrará el stock de los ingredientes.`)) {
-      voidSale(saleId);
+      try {
+        await voidSale(saleId);
+      } catch {
+        return;
+      }
       toast.info(`Venta ${saleId} anulada`, {
         description: "Los ingredientes han sido reintegrados al inventario.",
       });
@@ -786,6 +821,7 @@ export default function POS() {
                       className="secondary-btn"
                       style={{ flex: 1, padding: "14px 18px", fontSize: "0.95rem" }}
                       onClick={handleSaveTicket}
+                      disabled={isSubmitting}
                     >
                       {activeTicketId ? "Actualizar Pedido" : "Guardar Pedido"}
                     </button>
@@ -813,6 +849,7 @@ export default function POS() {
                       type="submit"
                       className="primary-btn checkout-btn"
                       style={{ flex: 1, padding: "14px 18px", fontSize: "1.05rem" }}
+                      disabled={isSubmitting}
                     >
                       Cobrar & Cerrar
                     </button>
