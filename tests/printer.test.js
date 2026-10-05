@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import {
   buildKitchenComandaTicket,
@@ -122,8 +125,8 @@ function createFakeIo({ writeError = null, execError = null } = {}) {
   return {
     calls,
     io: {
-      writeFile: async (target, data) => {
-        calls.push({ fn: "writeFile", target, data });
+      writeFile: async (target, data, options) => {
+        calls.push({ fn: "writeFile", target, data, options });
         if (writeError && !String(target).endsWith(".prn")) throw writeError;
       },
       unlink: async (target) => {
@@ -150,11 +153,11 @@ function errorWithCode(code) {
 test("resolvePrinterTarget keeps the Windows share as the default on Windows", () => {
   assert.deepEqual(resolvePrinterTarget({}, "win32"), {
     mode: "windows-share",
-    share: "\\localhost\TICKETS",
+    share: "\\\\localhost\\TICKETS",
   });
-  assert.deepEqual(resolvePrinterTarget({ PRINTER_SHARE: "\\localhost\CAJA" }, "win32"), {
+  assert.deepEqual(resolvePrinterTarget({ PRINTER_SHARE: "\\\\localhost\\CAJA" }, "win32"), {
     mode: "windows-share",
-    share: "\\localhost\CAJA",
+    share: "\\\\localhost\\CAJA",
   });
 });
 
@@ -195,7 +198,7 @@ test("printTicketBuffer on Windows copies a temp file to the share and removes i
   assert.equal(write.fn, "writeFile");
   assert.equal(write.data, buffer);
   assert.equal(exec.fn, "exec");
-  assert.equal(exec.command, `copy /b "${write.target}" "\\localhost\TICKETS"`);
+  assert.equal(exec.command, `copy /b "${write.target}" "\\\\localhost\\TICKETS"`);
   assert.equal(unlink.fn, "unlink");
   assert.equal(unlink.target, write.target);
 });
@@ -209,6 +212,8 @@ test("printTicketBuffer in device mode writes the raw bytes to the device", asyn
   assert.equal(fake.calls.length, 1);
   assert.equal(fake.calls[0].target, "/dev/usb/lp0");
   assert.equal(fake.calls[0].data, buffer);
+  // Sin crear el archivo si el dispositivo no existe.
+  assert.deepEqual(fake.calls[0].options, { flag: "r+" });
 });
 
 test("printTicketBuffer in device mode explains missing device and missing permissions", async () => {
@@ -230,6 +235,25 @@ test("printTicketBuffer in device mode explains missing device and missing permi
     }),
     /grupo "lp"/
   );
+});
+
+test("printTicketBuffer in device mode does not create a file when the printer is disconnected", async () => {
+  // Usa el fs real: con la impresora desconectada el dispositivo no existe,
+  // y escribir no debe crear un archivo normal en su lugar.
+  const dir = mkdtempSync(path.join(tmpdir(), "printer-test-"));
+  const device = path.join(dir, "lp0");
+  try {
+    await assert.rejects(
+      printTicketBuffer(buildCustomerReceiptTicket(SAMPLE_SALE), {
+        env: { PRINTER_DEVICE: device },
+        platform: "linux",
+      }),
+      /No existe ese dispositivo/
+    );
+    assert.equal(existsSync(device), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("printTicketBuffer in CUPS mode sends a raw job with lp and removes the temp file", async () => {

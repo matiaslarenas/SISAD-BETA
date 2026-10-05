@@ -148,7 +148,7 @@ export function buildCustomerReceiptTicket(sale) {
   return Buffer.from(parts.join(""), "latin1");
 }
 
-const DEFAULT_SHARE = "\\localhost\TICKETS";
+const DEFAULT_SHARE = "\\\\localhost\\TICKETS";
 const DEFAULT_DEVICE = "/dev/usb/lp0";
 
 // Decide cómo y a dónde enviar el ticket según las variables de entorno.
@@ -226,7 +226,9 @@ function sendToWindowsShare(buffer, share, io) {
 
 async function sendToDevice(buffer, device, io) {
   try {
-    await io.writeFile(device, buffer);
+    // "r+" no crea el archivo: si la impresora no está conectada se
+    // obtiene ENOENT en vez de escribir el ticket en un archivo normal.
+    await io.writeFile(device, buffer, { flag: "r+" });
   } catch (error) {
     let hint = "Verifica que la impresora esté conectada y encendida.";
     if (error.code === "ENOENT") {
