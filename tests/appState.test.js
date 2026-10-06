@@ -896,6 +896,28 @@ test(
   }
 );
 
+// Por qué el POS renueva la clave al vaciar el ticket o abrir una mesa: si
+// se perdió la respuesta de un pedido, ese pedido ya quedó guardado con su
+// clave. Un pedido distinto con la misma clave lo pisaría.
+test(
+  "a different order needs a new key, or it overwrites a ticket whose response was lost",
+  () => {
+    const lostResponse = saveTicket(buildTicketState(), newTicket("clave-a", 2));
+    const otherOrder = (key) => ({ ...newTicket(key, 1), tableOrCustomer: "Mesa 5" });
+
+    const sameKey = saveTicket(lostResponse, otherOrder("clave-a"));
+    assert.equal(sameKey.sales.length, 1);
+    assert.equal(sameKey.sales[0].tableOrCustomer, "Mesa 5");
+
+    const renewedKey = saveTicket(lostResponse, otherOrder("clave-b"));
+    assert.deepEqual(
+      renewedKey.sales.map((s) => s.tableOrCustomer).sort(),
+      ["Mesa 2", "Mesa 5"]
+    );
+    assert.equal(panOnHand(renewedKey), 17);
+  }
+);
+
 test(
   "a retry with the key of a ticket that was already charged is rejected",
   () => {

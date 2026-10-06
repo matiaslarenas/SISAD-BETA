@@ -109,7 +109,9 @@ export default function POS() {
   // Clave de idempotencia del pedido nuevo en pantalla (issue #10): el
   // servidor asigna el id, y esta clave hace que un reintento (por ejemplo,
   // si se perdió la respuesta) actualice el mismo ticket en vez de crear
-  // otro. Se conserva tras un error y se renueva cuando ya quedó usada.
+  // otro. Se conserva tras un error y se renueva cuando el formulario pasa
+  // a ser otro pedido (se guardó, se vació o se abrió una mesa): si no, un
+  // pedido distinto pisaría al que quedó guardado sin respuesta.
   const [clientRequestId, setClientRequestId] = useState(createClientRequestId);
 
   // Categories list
@@ -345,6 +347,7 @@ export default function POS() {
 
   const handleClearTicket = () => {
     setTicketItems([]);
+    setClientRequestId(createClientRequestId());
     setErrors({});
     setSuccessMessage("");
   };
@@ -363,6 +366,7 @@ export default function POS() {
   // Carga una mesa/pedido pendiente en pantalla para agregar productos o cobrar
   const handleSelectPendingTicket = (ticket) => {
     setActiveTicketId(ticket.id);
+    setClientRequestId(createClientRequestId());
     setTableOrCustomer(ticket.tableOrCustomer);
     setPaymentMethod(ticket.paymentMethod || "Tarjeta / Débito");
     setTicketNotes(ticket.notes || "");
