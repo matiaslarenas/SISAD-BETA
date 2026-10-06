@@ -23,6 +23,7 @@ Sin mocks de DOM. Correr con `npm test`.
 | Registro de mermas | `tests/waste.test.js` |
 | Motor de alertas | `tests/alerts.test.js` |
 | Invariantes matemáticas (idempotencia, reversibilidad, congelamiento de costos) | `tests/invariants.test.js` |
+| Persistencia del servidor (estado corrupto/vacío, instalación nueva, guardado y respaldo exportado) | `tests/persistence.test.js` |
 
 ## Regla no negociable
 

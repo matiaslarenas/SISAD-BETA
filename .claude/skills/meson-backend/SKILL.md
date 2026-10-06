@@ -55,6 +55,13 @@ acciones. Si agregas un caso nuevo:
   archivo temporal y recién después hace `renameSync` al archivo final.
   No cambiar esto a una escritura directa — es lo que evita corromper
   `app-state.json` si se corta la luz a mitad de guardado.
+- **Estado persistido ilegible**: si `server/data/app-state.json` existe
+  pero no se puede leer o normalizar, `loadState()` lanza `StateFileError`
+  y no modifica el archivo. `server/index.js` informa el error y termina
+  sin iniciar con el estado semilla; no se debe recuperar silenciosamente
+  ni renombrar el archivo. Conserva una copia y restaura el respaldo JSON
+  del Panel antes de volver a iniciar. Solo una instalación sin archivo
+  crea el estado por defecto.
 - **Confundir el estado del cliente con el del servidor**: el cliente
   (`AppDataContext.jsx`) ya no es dueño del estado — solo lo refleja.
   No reintroducir un `useReducer` local que mute el estado en el
