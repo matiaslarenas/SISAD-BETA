@@ -64,7 +64,8 @@ Reglas:
   masa↔volumen es la causa #1 de márgenes rotos — ver `meson-reglas-negocio`.
 - El POS calcula solo las porciones máximas disponibles
   (`calculateRecipeMaxPortions`, el ingrediente "cuello de botella"); no
-  hay que precalcular stock a mano.
+  hay que precalcular stock a mano. Un ítem sin stock se ve apagado pero se
+  puede vender tras confirmar (ver `meson-reglas-negocio`).
 - `salePrice` se fija a mano, no hay fórmula de margen obligatoria. Si el
   usuario no da un precio, calcula el costo con `calculateRecipeCost` y
   aplica un margen parecido al de platos similares — revisa el umbral de

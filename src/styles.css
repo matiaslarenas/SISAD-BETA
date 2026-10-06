@@ -1462,9 +1462,9 @@ button:disabled {
   box-shadow: 0 10px 24px rgba(29, 105, 81, 0.09);
 }
 
+/* Sin stock se ve apagado, pero se puede agregar tras confirmar (issue #15). */
 .pos-item-card.out-of-stock {
   opacity: 0.58;
-  cursor: not-allowed;
   background: var(--panel-alt);
 }
 
@@ -1747,6 +1747,16 @@ button:disabled {
 .ticket-item-info span {
   font-size: 0.78rem;
   color: var(--muted);
+}
+
+/* Aviso de venta sobre el stock (issue #15): no bloquea, solo queda a la vista. */
+.ticket-item-info .ticket-stock-warning {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  color: var(--warning);
+  font-weight: 600;
 }
 
 .ticket-qty-controls {
