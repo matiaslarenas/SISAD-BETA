@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { recipesData } from "../src/data/recipesData.js";
 
 import {
   addOrUpdateProduct,
@@ -11,7 +12,6 @@ import {
   recordSale,
   voidSale,
 } from "../src/state/appState.js";
-import { recipesData } from "../src/data/recipesData.js";
 
 test(
   "buildInventorySnapshot derives stock and cost from movements",
@@ -81,6 +81,22 @@ test(
       inventory[0].inventoryValue,
       14400
     );
+  }
+);
+
+test(
+  "normalizeLoadedState usa las recetas semilla cuando el estado no trae recipes",
+  () => {
+    const state = normalizeLoadedState({
+      inventoryCatalog: [],
+      inventoryMovements: [],
+      suppliers: [],
+      purchases: [],
+      sales: [],
+    });
+
+    assert.equal(Array.isArray(state.recipes), true);
+    assert.equal(state.recipes.length, recipesData.length);
   }
 );
 
@@ -520,21 +536,5 @@ test(
     assert.equal(invAfterVoid.find((i) => i.id === "INV-FLOUR").onHand, 20);
     assert.equal(invAfterVoid.find((i) => i.id === "INV-WATER").onHand, 20);
     assert.equal(invAfterVoid.find((i) => i.id === "INV-CHEESE").onHand, 5);
-  }
-);
-
-test(
-  "normalizeLoadedState usa las recetas semilla cuando el estado no trae recipes",
-  () => {
-    const state = normalizeLoadedState({
-      inventoryCatalog: [],
-      inventoryMovements: [],
-      suppliers: [],
-      purchases: [],
-      sales: [],
-    });
-
-    assert.equal(Array.isArray(state.recipes), true);
-    assert.equal(state.recipes.length, recipesData.length);
   }
 );
