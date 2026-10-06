@@ -7,6 +7,9 @@ description: Usar antes de modificar src/state/appState.js, src/state/rootReduce
 
 Documento completo de referencia: `docs/ARCHITECTURE.md` y `docs/MODELO_DE_DATOS.md`. Lee ambos antes de tocar código de dominio si no los tienes en contexto.
 
+> Si `docs/` contradice el issue #17 "Estado SISAD" (tablero común) o el
+> código, vale el tablero o el código: `docs/` no se está actualizando por ahora.
+
 ## Principio central (no negociable)
 
 **El inventario no es un número editable.** Se deriva matemáticamente de
@@ -41,7 +44,7 @@ Helado. No reintroduzcas ese bug.
 
 El Mesón de Los Laureles, localidad de Los Laureles, comuna de Cunco,
 Región de La Araucanía. El sistema ya migró de `localStorage` puro a un
-servidor local (desktop como host, tablet/celulares como clientes vía
-WiFi) — probado en producción real, sincronización confirmada
-funcionando. Ver `meson-backend` para las convenciones de esa capa
+servidor local: el computador B del restaurante, con Ubuntu Server, es
+el host, y la tablet y el celular son clientes por WiFi. La
+sincronización ya se probó en el montaje anterior (desktop Windows). Ver `meson-backend` para las convenciones de esa capa
 (`server/index.js`, `server/persistence.js`, `rootReducer.js`).

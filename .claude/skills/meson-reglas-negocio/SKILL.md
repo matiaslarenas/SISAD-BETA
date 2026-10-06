@@ -8,6 +8,9 @@ description: Usar al implementar o corregir cálculos de stock, costeo de receta
 Documento completo de referencia: `docs/REGLAS_DE_NEGOCIO.md`. Léelo antes
 de escribir o modificar una fórmula si no lo tienes en contexto.
 
+> Si `docs/` contradice el issue #17 "Estado SISAD" (tablero común) o el
+> código, vale el tablero o el código: `docs/` no se está actualizando por ahora.
+
 ## Fórmulas ya definidas — no reinventar
 
 - **Stock**: `onHand = Σ(movimiento.quantity)` para todos los movimientos
