@@ -62,6 +62,16 @@ acciones. Si agregas un caso nuevo:
   (`AppDataContext.jsx`) ya no es dueño del estado — solo lo refleja.
   No reintroducir un `useReducer` local que mute el estado en el
   navegador; toda mutación real pasa por `POST /api/dispatch`.
+- **Ids de venta generados en el cliente** (issue #10): el cliente veía
+  `sales.length` con el desfase del polling y dos ventas podían recibir el
+  mismo id. Ahora el id lo asigna el servidor (`generateSaleId`, a partir
+  del mayor `VTA-n`). Un ticket nuevo del POS no envía `id`, sino una
+  `clientRequestId` (`createClientRequestId`, con
+  `crypto.getRandomValues`; no usar `crypto.randomUUID`, que no existe
+  por `http://`). `saveTicket` con una clave ya guardada actualiza ese
+  ticket (reintento) en vez de crear otro. `dispatch` devuelve el estado
+  aplicado y el POS ubica su ticket por la clave. No volver a generar ids
+  de venta en el cliente.
 
 ## Al tocar `AppDataContext.jsx`
 

@@ -32,7 +32,11 @@ import FilterSelect from "../components/FilterSelect";
 import { useAppData } from "../context/AppDataContext";
 import { formatCurrency, calculateMargin, calculateProfit } from "../utils/recipeCalculator";
 import { calculateRecipeMaxPortions } from "../utils/recipeCalculator";
-import { formatDisplayDate, getTodayISODate } from "../state/appState";
+import {
+  createClientRequestId,
+  formatDisplayDate,
+  getTodayISODate,
+} from "../state/appState";
 import { hasValidationErrors, validateSaleForm } from "../utils/validation";
 import { toast } from "sonner";
 
@@ -82,7 +86,6 @@ export default function POS() {
     sales,
     saveTicket,
     closeTicket,
-    generateSaleId,
     voidSale,
     printTicket,
   } = useAppData();
@@ -103,6 +106,11 @@ export default function POS() {
   // Bloquea los botones mientras el servidor responde, para que un doble
   // toque no despache dos veces el mismo ticket.
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Clave de idempotencia del pedido nuevo en pantalla (issue #10): el
+  // servidor asigna el id, y esta clave hace que un reintento (por ejemplo,
+  // si se perdió la respuesta) actualice el mismo ticket en vez de crear
+  // otro. Se conserva tras un error y se renueva cuando ya quedó usada.
+  const [clientRequestId, setClientRequestId] = useState(createClientRequestId);
 
   // Categories list
   const categories = useMemo(() => {
@@ -348,6 +356,7 @@ export default function POS() {
     setPaymentMethod("Tarjeta / Débito");
     setTicketNotes("");
     setActiveTicketId(null);
+    setClientRequestId(createClientRequestId());
     setErrors({});
   };
 
@@ -397,11 +406,10 @@ export default function POS() {
     }
 
     // dispatch ya muestra el error del servidor con un toast y lo relanza:
-    // si falla, se conserva el formulario para reintentar.
-    const ticketId = activeTicketId || generateSaleId();
+    // si falla, se conserva el formulario (y su clave) para reintentar.
     setIsSubmitting(true);
     try {
-      await saveTicket({ id: ticketId, ...salePayload });
+      await saveTicket({ ...ticketReference(), ...salePayload });
     } catch {
       return;
     } finally {
@@ -444,13 +452,20 @@ export default function POS() {
     // con lo que finalmente se cobró, venga o no de una mesa pendiente.
     // closeTicket debe esperar a saveTicket: si llega antes al servidor no
     // encuentra el ticket pendiente y no cierra nada.
-    const ticketId = activeTicketId || generateSaleId();
     setIsSubmitting(true);
     try {
-      await saveTicket({ id: ticketId, ...salePayload });
+      const savedState = await saveTicket({ ...ticketReference(), ...salePayload });
+      const ticketId =
+        activeTicketId ||
+        savedState.sales.find((s) => s.clientRequestId === clientRequestId)?.id;
+      if (!ticketId) {
+        toast.error("No se pudo ubicar el pedido guardado. Revisa las mesas activas antes de cobrar.");
+        return;
+      }
       // Si el cierre falla, el reintento debe actualizar este mismo ticket
-      // pendiente en vez de crear otro con un id nuevo.
+      // pendiente en vez de crear otro. La clave ya quedó usada.
       setActiveTicketId(ticketId);
+      setClientRequestId(createClientRequestId());
       await closeTicket({ saleId: ticketId, paymentMethod, notes: ticketNotes });
     } catch {
       return;
@@ -466,11 +481,17 @@ export default function POS() {
     setTimeout(() => setSuccessMessage(""), 4500);
   };
 
+  // Un ticket existente se identifica por su id; uno nuevo, por la clave de
+  // idempotencia, y el servidor le asigna el id.
+  const ticketReference = () =>
+    activeTicketId ? { id: activeTicketId } : { clientRequestId };
+
   // Arma el pedido actual (aún no guardado) con la misma forma que
   // espera la impresora, para poder imprimirlo sin depender de que ya
   // se haya cerrado la venta.
   const buildCurrentSalePayload = () => ({
-    id: activeTicketId || generateSaleId(),
+    // Un pedido nuevo todavía no tiene id: lo asigna el servidor al guardar.
+    id: activeTicketId || "Nuevo",
     tableOrCustomer,
     paymentMethod,
     date: getTodayISODate(),
