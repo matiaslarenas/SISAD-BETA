@@ -1,16 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { recipesData } from "../src/data/recipesData.js";
 
 import {
   addOrUpdateProduct,
   buildInventorySnapshot,
+  closeTicket,
   createPurchaseOrder,
+  DomainError,
   getTodayISODate,
   normalizeLoadedState,
   receivePurchaseOrder,
+  recordDirectPurchase,
   recordSale,
+  saveTicket,
   voidSale,
 } from "../src/state/appState.js";
+import { appDataReducer } from "../src/state/rootReducer.js";
 
 test(
   "buildInventorySnapshot derives stock and cost from movements",
@@ -80,6 +86,22 @@ test(
       inventory[0].inventoryValue,
       14400
     );
+  }
+);
+
+test(
+  "normalizeLoadedState usa las recetas semilla cuando el estado no trae recipes",
+  () => {
+    const state = normalizeLoadedState({
+      inventoryCatalog: [],
+      inventoryMovements: [],
+      suppliers: [],
+      purchases: [],
+      sales: [],
+    });
+
+    assert.equal(Array.isArray(state.recipes), true);
+    assert.equal(state.recipes.length, recipesData.length);
   }
 );
 
@@ -244,6 +266,78 @@ test(
         .reference,
       "OC-777"
     );
+  }
+);
+
+function receiveFromSupplier(productSupplier, purchaseSupplier) {
+  let state = normalizeLoadedState({
+    inventoryCatalog: [
+      {
+        id: "INV-20",
+        item: "Lechuga",
+        type: "ingredient",
+        category: "Verduras",
+        supplier: productSupplier,
+        location: "Frío",
+        purchaseUnit: "un",
+        costPerUnit: 800,
+        minStock: 2,
+      },
+    ],
+    inventoryMovements: [],
+    suppliers: [],
+    purchases: [],
+    recipes: [],
+  });
+
+  state = createPurchaseOrder(state, {
+    id: "OC-900",
+    supplier: purchaseSupplier,
+    category: "Verduras",
+    orderedDate: "2026-10-01",
+    items: [
+      {
+        id: "POI-9",
+        productId: "INV-20",
+        productName: "Lechuga",
+        purchaseUnit: "un",
+        quantity: 5,
+        unitCost: 950,
+      },
+    ],
+  });
+
+  return receivePurchaseOrder(state, {
+    purchaseId: "OC-900",
+    receiptDate: "2026-10-02",
+    items: [
+      {
+        id: "POI-9",
+        productId: "INV-20",
+        receivedQuantity: 5,
+        unitCost: 950,
+      },
+    ],
+  });
+}
+
+test(
+  "recibir una compra de otro proveedor no cambia el proveedor habitual del producto",
+  () => {
+    const nextState = receiveFromSupplier("Huertos Fresh", "Feria");
+
+    assert.equal(nextState.inventoryCatalog[0].supplier, "Huertos Fresh");
+    assert.equal(nextState.inventoryCatalog[0].costPerUnit, 950);
+    assert.equal(nextState.purchases[0].supplier, "Feria");
+  }
+);
+
+test(
+  "recibir una compra asigna el proveedor si el producto no tenía uno",
+  () => {
+    const nextState = receiveFromSupplier("", "Feria");
+
+    assert.equal(nextState.inventoryCatalog[0].supplier, "Feria");
   }
 );
 
@@ -519,5 +613,268 @@ test(
     assert.equal(invAfterVoid.find((i) => i.id === "INV-FLOUR").onHand, 20);
     assert.equal(invAfterVoid.find((i) => i.id === "INV-WATER").onHand, 20);
     assert.equal(invAfterVoid.find((i) => i.id === "INV-CHEESE").onHand, 5);
+  }
+);
+
+// Estado mínimo para los tests de tickets del POS: un producto con stock
+// de 20 unidades y una receta que consume 1 unidad por porción.
+function buildTicketState() {
+  return normalizeLoadedState({
+    inventoryCatalog: [
+      {
+        id: "INV-PAN",
+        item: "Pan Amasado",
+        type: "ingredient",
+        category: "Panadería",
+        purchaseUnit: "un",
+        costPerUnit: 300,
+        minStock: 5,
+      },
+    ],
+    inventoryMovements: [
+      {
+        id: "MOV-PAN-1",
+        productId: "INV-PAN",
+        type: "purchase",
+        quantity: 20,
+        unitCost: 300,
+        movementDate: "2026-09-01",
+        reference: "Inicio",
+        notes: "",
+      },
+    ],
+    suppliers: [],
+    purchases: [],
+    recipes: [
+      {
+        id: "REC-SANDWICH",
+        name: "Sándwich",
+        category: "Fondos",
+        salePrice: 5000,
+        servings: 1,
+        ingredients: [
+          { productId: "INV-PAN", quantity: 1, unit: "un" },
+        ],
+      },
+    ],
+    sales: [],
+  });
+}
+
+const TICKET_PAYLOAD = {
+  tableOrCustomer: "Mesa 2",
+  paymentMethod: "Efectivo",
+  items: [{ type: "recipe", itemId: "REC-SANDWICH", quantity: 2 }],
+  notes: "",
+};
+
+function panOnHand(state) {
+  return buildInventorySnapshot(state.inventoryCatalog, state.inventoryMovements)
+    .find((item) => item.id === "INV-PAN").onHand;
+}
+
+// Regresión del cobro en el POS: saveTicket y closeTicket se despachaban
+// sin esperar respuesta, en paralelo. Si el cierre llega al servidor
+// antes que el guardado, no encuentra un ticket pendiente y no hace nada,
+// mientras el POS ya mostró "Venta registrada". Por eso POS.jsx debe
+// esperar a saveTicket antes de despachar closeTicket.
+test(
+  "closeTicket is a no-op when it reaches the server before saveTicket",
+  () => {
+    const state = buildTicketState();
+
+    const closedFirst = closeTicket(state, {
+      saleId: "VTA-1001",
+      paymentMethod: "Efectivo",
+      notes: "",
+    });
+    assert.equal(closedFirst, state);
+
+    const saved = saveTicket(closedFirst, { id: "VTA-1001", ...TICKET_PAYLOAD });
+    assert.equal(saved.sales[0].status, "pending");
+  }
+);
+
+test(
+  "saveTicket followed by closeTicket completes the sale and discounts stock once",
+  () => {
+    const saved = saveTicket(buildTicketState(), { id: "VTA-1001", ...TICKET_PAYLOAD });
+    const closed = closeTicket(saved, {
+      saleId: "VTA-1001",
+      paymentMethod: "Efectivo",
+      notes: "",
+    });
+
+    assert.equal(closed.sales.length, 1);
+    assert.equal(closed.sales[0].status, "completed");
+    assert.equal(panOnHand(closed), 18);
+  }
+);
+
+// Regresión: saveTicket solo reconocía tickets PENDING, pero siempre
+// borraba los movimientos de venta con ese id. Con el id de una venta ya
+// cobrada (o anulada) duplicaba el id y rehacía su descuento de stock.
+// Pasa, por ejemplo, si el cliente genera un id con un estado desfasado.
+test(
+  "saveTicket rejects the id of a sale that is already completed",
+  () => {
+    const saved = saveTicket(buildTicketState(), { id: "VTA-1001", ...TICKET_PAYLOAD });
+    const closed = closeTicket(saved, {
+      saleId: "VTA-1001",
+      paymentMethod: "Efectivo",
+      notes: "",
+    });
+
+    assert.throws(
+      () => saveTicket(closed, { id: "VTA-1001", ...TICKET_PAYLOAD }),
+      (error) =>
+        error instanceof DomainError && /VTA-1001 ya fue cobrada/.test(error.message)
+    );
+  }
+);
+
+test(
+  "saveTicket rejects the id of a voided sale so its stock is not restored twice",
+  () => {
+    const saved = saveTicket(buildTicketState(), { id: "VTA-1001", ...TICKET_PAYLOAD });
+    const voided = voidSale(saved, "VTA-1001");
+    assert.equal(panOnHand(voided), 20);
+
+    assert.throws(
+      () => saveTicket(voided, { id: "VTA-1001", ...TICKET_PAYLOAD }),
+      (error) =>
+        error instanceof DomainError && /VTA-1001 ya fue anulada/.test(error.message)
+    );
+  }
+);
+
+test(
+  "saveTicket on a pending ticket replaces its stock reservation instead of adding to it",
+  () => {
+    const saved = saveTicket(buildTicketState(), { id: "VTA-1001", ...TICKET_PAYLOAD });
+    const updated = saveTicket(saved, {
+      id: "VTA-1001",
+      ...TICKET_PAYLOAD,
+      items: [{ type: "recipe", itemId: "REC-SANDWICH", quantity: 3 }],
+    });
+
+    assert.equal(updated.sales.length, 1);
+    assert.equal(panOnHand(updated), 17);
+  }
+);
+
+// --- Compra directa: se registra ya recibida, en un solo paso ---
+
+const DIRECT_PURCHASE = {
+  supplier: "Panadería Central",
+  purchaseDate: "2026-10-05",
+  notes: "Boleta 1234",
+  items: [{ productId: "INV-PAN", quantity: "12", unitCost: "350" }],
+};
+
+test(
+  "recordDirectPurchase adds stock with a purchase movement at the price paid",
+  () => {
+    const next = recordDirectPurchase(buildTicketState(), DIRECT_PURCHASE);
+
+    assert.equal(panOnHand(next), 32);
+
+    const movement = next.inventoryMovements.at(-1);
+    assert.equal(movement.type, "purchase");
+    assert.equal(movement.productId, "INV-PAN");
+    assert.equal(movement.quantity, 12);
+    assert.equal(movement.unitCost, 350);
+    assert.equal(movement.movementDate, "2026-10-05");
+    assert.equal(movement.reference, next.purchases.at(-1).id);
+  }
+);
+
+test(
+  "recordDirectPurchase stores the purchase as received and updates the current cost",
+  () => {
+    const state = buildTicketState();
+    const next = recordDirectPurchase(state, DIRECT_PURCHASE);
+
+    assert.equal(next.purchases.length, state.purchases.length + 1);
+    const purchase = next.purchases.at(-1);
+    assert.equal(purchase.status, "received");
+    assert.equal(purchase.supplier, "Panadería Central");
+    assert.equal(purchase.orderedDate, "2026-10-05");
+    assert.equal(purchase.receiptDate, "2026-10-05");
+    assert.equal(purchase.amount, 4200);
+
+    assert.equal(
+      next.inventoryCatalog.find((p) => p.id === "INV-PAN").costPerUnit,
+      350
+    );
+    // El costo de la compra anterior queda congelado.
+    assert.equal(
+      next.inventoryMovements.find((m) => m.id === "MOV-PAN-1").unitCost,
+      300
+    );
+  }
+);
+
+test(
+  "recordDirectPurchase gives a new id even when older purchases left gaps",
+  () => {
+    const state = {
+      ...buildTicketState(),
+      purchases: [
+        { id: "OC-1001", supplier: "A", status: "received", items: [] },
+        { id: "OC-1003", supplier: "B", status: "received", items: [] },
+      ],
+    };
+
+    const next = recordDirectPurchase(state, DIRECT_PURCHASE);
+
+    assert.equal(next.purchases.at(-1).id, "OC-1004");
+  }
+);
+
+test(
+  "recordDirectPurchase rejects an invalid purchase without changing the state",
+  () => {
+    const state = buildTicketState();
+
+    assert.throws(
+      () => recordDirectPurchase(state, { ...DIRECT_PURCHASE, items: [] }),
+      (error) => error instanceof DomainError && /al menos un producto/.test(error.message)
+    );
+    assert.throws(
+      () =>
+        recordDirectPurchase(state, {
+          ...DIRECT_PURCHASE,
+          items: [{ productId: "INV-PAN", quantity: "12", unitCost: "0" }],
+        }),
+      (error) => error instanceof DomainError && /costo unitario/.test(error.message)
+    );
+    assert.equal(panOnHand(state), 20);
+  }
+);
+
+test(
+  "recordDirectPurchase rejects a product that is not in the inventory",
+  () => {
+    assert.throws(
+      () =>
+        recordDirectPurchase(buildTicketState(), {
+          ...DIRECT_PURCHASE,
+          items: [{ productId: "INV-NO-EXISTE", quantity: "1", unitCost: "100" }],
+        }),
+      (error) => error instanceof DomainError && /no existe en el inventario/.test(error.message)
+    );
+  }
+);
+
+test(
+  "the root reducer applies purchase/record-direct so every device can register purchases",
+  () => {
+    const next = appDataReducer(buildTicketState(), {
+      type: "purchase/record-direct",
+      payload: DIRECT_PURCHASE,
+    });
+
+    assert.equal(panOnHand(next), 32);
   }
 );

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   hasValidationErrors,
+  validateDirectPurchaseForm,
   validateProductForm,
   validatePurchaseForm,
   validateReceiptForm,
@@ -100,3 +101,55 @@ test(
   }
 );
 
+
+const VALID_DIRECT_PURCHASE = {
+  supplier: "Feria Cunco",
+  purchaseDate: "2026-10-05",
+  items: [
+    { productId: "INV-1", quantity: "3", unitCost: "1500" },
+    { productId: "INV-2", quantity: "0.5", unitCost: "8000" },
+  ],
+};
+
+test("direct purchase validation accepts a complete purchase", () => {
+  assert.equal(
+    hasValidationErrors(validateDirectPurchaseForm(VALID_DIRECT_PURCHASE)),
+    false
+  );
+});
+
+test("direct purchase validation requires supplier, date and at least one line", () => {
+  const errors = validateDirectPurchaseForm({ supplier: " ", purchaseDate: "", items: [] });
+
+  assert.equal(errors.supplier, "Ingresa el proveedor.");
+  assert.equal(errors.purchaseDate, "Selecciona la fecha de la compra.");
+  assert.equal(errors.items, "Agrega al menos un producto a la compra.");
+});
+
+test("direct purchase validation marks each invalid line with the purchase item rules", () => {
+  const errors = validateDirectPurchaseForm({
+    ...VALID_DIRECT_PURCHASE,
+    items: [
+      { productId: "INV-1", quantity: "3", unitCost: "1500" },
+      { productId: "", quantity: "0", unitCost: "" },
+    ],
+  });
+
+  assert.equal(errors.lines[0], undefined);
+  assert.equal(errors.lines[1].productId, "Selecciona un producto.");
+  assert.equal(errors.lines[1].quantity, "La cantidad debe ser mayor a 0.");
+  assert.equal(errors.lines[1].unitCost, "El costo unitario debe ser mayor a 0.");
+  assert.equal(errors.items, "Revisa los productos marcados.");
+});
+
+test("direct purchase validation rejects the same product in two lines", () => {
+  const errors = validateDirectPurchaseForm({
+    ...VALID_DIRECT_PURCHASE,
+    items: [
+      { productId: "INV-1", quantity: "3", unitCost: "1500" },
+      { productId: "INV-1", quantity: "1", unitCost: "1500" },
+    ],
+  });
+
+  assert.equal(errors.lines[1].productId, "Este producto ya está en otra línea.");
+});

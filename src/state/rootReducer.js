@@ -18,6 +18,7 @@ import {
   markPurchaseInTransit,
   normalizeLoadedState,
   receivePurchaseOrder,
+  recordDirectPurchase,
   recordSale,
   recordWaste,
   saveTicket,
@@ -60,6 +61,9 @@ export function appDataReducer(state, action) {
 
     case "purchase/receive":
       return receivePurchaseOrder(state, action.payload);
+
+    case "purchase/record-direct":
+      return recordDirectPurchase(state, action.payload);
 
     case "sale/record":
       return recordSale(state, action.payload);

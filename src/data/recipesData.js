@@ -67,8 +67,8 @@ export const recipesData = [
         "category": "Bases",
         "type": "base_recipe",
         "status": "active",
-        "yieldQuantity": 10,
-        "yieldUnit": "un",
+        "yieldQuantity": 920,
+        "yieldUnit": "gr",
         "ingredients": [
             { "productId": "INV001", "quantity": 1000, "unit": "gr" }, // Harina de Trigo
             { "productId": "INV069", "quantity": 10, "unit": "un" }    // Huevo
@@ -102,6 +102,16 @@ export const recipesData = [
         "status": "pending_measurement",
         "yieldQuantity": 0,
         "yieldUnit": "ml",
+        "ingredients": []
+    },
+    {
+        "id": "BASE_PINO_CARNE",
+        "name": "Pino de Carne Base (Vacuno)",
+        "category": "Bases",
+        "type": "base_recipe",
+        "status": "pending_measurement",
+        "yieldQuantity": 0,
+        "yieldUnit": "gr",
         "ingredients": []
     },
     {
@@ -160,22 +170,66 @@ export const recipesData = [
         ]
     },
     {
-        "id": "REC_PIZZA_CON_TODO",
-        "name": "Pizza Con Todo",
+        "id": "REC_PIZZA_CON_TODO_CARNE",
+        "name": "Pizza con Todo Carne",
         "category": "Pizzas",
         "type": "recipe",
         "status": "active",
-        "salePrice": 14000,
+        "salePrice": 13500,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
             { "baseRecipeId": "BASE_PIZZA_DOUGH", "quantity": 1, "unit": "un" },
             { "baseRecipeId": "BASE_PIZZA_SAUCE", "quantity": 150, "unit": "ml" },
             { "productId": "INV002", "quantity": 200, "unit": "gr" }, // Queso Mozzarella
-            { "productId": "INV015", "quantity": 80, "unit": "gr" },  // Salame
-            { "productId": "INV064", "quantity": 60, "unit": "gr" },  // Tocino Ahumado
-            { "productId": "INV066", "quantity": 60, "unit": "gr" },  // Champiñones
-            { "productId": "INV014", "quantity": 40, "unit": "gr" }   // Aceitunas Negras
+            { "productId": "INV003", "quantity": 50, "unit": "gr" },  // Tomate Maduro
+            { "productId": "INV006", "quantity": 50, "unit": "gr" },  // Pimentón Rojo
+            { "productId": "INV008", "quantity": 40, "unit": "gr" },  // Cebolla
+            { "productId": "INV014", "quantity": 40, "unit": "gr" },  // Aceitunas Negras
+            { "productId": "INV016", "quantity": 120, "unit": "gr" }, // Carne Molida
+            { "productId": "INV037", "quantity": 3, "unit": "gr" }    // Orégano
+        ]
+    },
+    {
+        "id": "REC_PIZZA_CON_TODO_POLLO",
+        "name": "Pizza con Todo Pollo",
+        "category": "Pizzas",
+        "type": "recipe",
+        "status": "active",
+        "salePrice": 13500,
+        "yieldQuantity": 1,
+        "yieldUnit": "un",
+        "ingredients": [
+            { "baseRecipeId": "BASE_PIZZA_DOUGH", "quantity": 1, "unit": "un" },
+            { "baseRecipeId": "BASE_PIZZA_SAUCE", "quantity": 150, "unit": "ml" },
+            { "productId": "INV002", "quantity": 200, "unit": "gr" }, // Queso Mozzarella
+            { "productId": "INV003", "quantity": 50, "unit": "gr" },  // Tomate Maduro
+            { "productId": "INV006", "quantity": 50, "unit": "gr" },  // Pimentón Rojo
+            { "productId": "INV008", "quantity": 40, "unit": "gr" },  // Cebolla
+            { "productId": "INV014", "quantity": 40, "unit": "gr" },  // Aceitunas Negras
+            { "productId": "INV017", "quantity": 150, "unit": "gr" }, // Pechuga de Pollo Filete (picada)
+            { "productId": "INV037", "quantity": 3, "unit": "gr" }    // Orégano
+        ]
+    },
+    {
+        "id": "REC_PIZZA_CON_TODO_CAMARON",
+        "name": "Pizza con Todo Camarón",
+        "category": "Pizzas",
+        "type": "recipe",
+        "status": "active",
+        "salePrice": 15500,
+        "yieldQuantity": 1,
+        "yieldUnit": "un",
+        "ingredients": [
+            { "baseRecipeId": "BASE_PIZZA_DOUGH", "quantity": 1, "unit": "un" },
+            { "baseRecipeId": "BASE_PIZZA_SAUCE", "quantity": 150, "unit": "ml" },
+            { "productId": "INV002", "quantity": 200, "unit": "gr" }, // Queso Mozzarella
+            { "productId": "INV003", "quantity": 50, "unit": "gr" },  // Tomate Maduro
+            { "productId": "INV006", "quantity": 50, "unit": "gr" },  // Pimentón Rojo
+            { "productId": "INV008", "quantity": 40, "unit": "gr" },  // Cebolla
+            { "productId": "INV014", "quantity": 40, "unit": "gr" },  // Aceitunas Negras
+            { "productId": "INV019", "quantity": 80, "unit": "gr" },  // Camarones Ecuador
+            { "productId": "INV037", "quantity": 3, "unit": "gr" }    // Orégano
         ]
     },
     {
@@ -184,7 +238,7 @@ export const recipesData = [
         "category": "Empanadas",
         "type": "recipe",
         "status": "active",
-        "salePrice": 3000,
+        "salePrice": 2000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -198,7 +252,7 @@ export const recipesData = [
         "category": "Empanadas",
         "type": "recipe",
         "status": "active",
-        "salePrice": 3800,
+        "salePrice": 3000,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -213,7 +267,7 @@ export const recipesData = [
         "category": "Empanadas",
         "type": "recipe",
         "status": "active",
-        "salePrice": 3300,
+        "salePrice": 2800,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -228,7 +282,7 @@ export const recipesData = [
         "category": "Empanadas",
         "type": "recipe",
         "status": "active",
-        "salePrice": 3500,
+        "salePrice": 2500,
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
@@ -240,9 +294,24 @@ export const recipesData = [
         ]
     },
     {
+        "id": "REC_EMP_PINO",
+        "name": "Empanada Frita de Pino",
+        "category": "Empanadas",
+        "type": "recipe",
+        "status": "pending_measurement",
+        "salePrice": 0,
+        "yieldQuantity": 1,
+        "yieldUnit": "un",
+        // Falta medir BASE_PINO_CARNE (relleno de carne de vacuno) y el precio
+        // de venta. Se deja sin ingredientes (igual que Almuerzo Lomo de Cerdo)
+        // para que quede "sin stock" en el POS y no se pueda vender hasta
+        // completar el dato real — no fabricar cantidades de pino ni precio.
+        "ingredients": []
+    },
+    {
         "id": "REC_PAPAS_INDIVIDUAL",
         "name": "Papas Fritas Individual",
-        "category": "Acompañamientos",
+        "category": "Papas Fritas",
         "type": "recipe",
         "status": "active",
         "salePrice": 2000,
@@ -256,7 +325,7 @@ export const recipesData = [
     {
         "id": "REC_PAPAS_2_PERSONAS",
         "name": "Papas Fritas Para 2",
-        "category": "Acompañamientos",
+        "category": "Papas Fritas",
         "type": "recipe",
         "status": "active",
         "salePrice": 2600,
@@ -270,7 +339,7 @@ export const recipesData = [
     {
         "id": "REC_PAPAS_4_PERSONAS",
         "name": "Papas Fritas Para 4",
-        "category": "Acompañamientos",
+        "category": "Papas Fritas",
         "type": "recipe",
         "status": "active",
         "salePrice": 3200,
@@ -284,7 +353,7 @@ export const recipesData = [
     {
         "id": "REC_PAPAS_CHEDDAR",
         "name": "Papas Fritas Cheddar",
-        "category": "Acompañamientos",
+        "category": "Papas Fritas",
         "type": "recipe",
         "status": "active",
         "salePrice": 2800,
@@ -299,7 +368,7 @@ export const recipesData = [
     {
         "id": "REC_PALITOS_MOZZARELLA",
         "name": "Palitos Mozzarella (6 un)",
-        "category": "Acompañamientos",
+        "category": "Extras",
         "type": "recipe",
         "status": "active",
         "salePrice": 6000,
@@ -313,7 +382,7 @@ export const recipesData = [
     {
         "id": "REC_ARITOS_CEBOLLA",
         "name": "Aritos de Cebolla (12 un)",
-        "category": "Acompañamientos",
+        "category": "Extras",
         "type": "recipe",
         "status": "active",
         "salePrice": 2700,
@@ -455,8 +524,8 @@ export const recipesData = [
         ]
     },
     {
-        "id": "REC_BATIDO_LECHE",
-        "name": "Batido con Leche (480cc)",
+        "id": "REC_BATIDO_FRUTILLA",
+        "name": "Batido de Frutilla (480cc)",
         "category": "Bebidas",
         "type": "recipe",
         "status": "active",
@@ -465,6 +534,51 @@ export const recipesData = [
         "yieldUnit": "un",
         "ingredients": [
             { "productId": "INV028", "quantity": 150, "unit": "gr" }, // Frutilla Congelada/Natural
+            { "productId": "INV021", "quantity": 250, "unit": "ml" }, // Leche Entera
+            { "productId": "INV010", "quantity": 30, "unit": "gr" }   // Azúcar Granulada
+        ]
+    },
+    {
+        "id": "REC_BATIDO_FRAMBUESA",
+        "name": "Batido de Frambuesa (480cc)",
+        "category": "Bebidas",
+        "type": "recipe",
+        "status": "active",
+        "salePrice": 3200,
+        "yieldQuantity": 1,
+        "yieldUnit": "un",
+        "ingredients": [
+            { "productId": "INV029", "quantity": 150, "unit": "gr" }, // Frambuesa Congelada
+            { "productId": "INV021", "quantity": 250, "unit": "ml" }, // Leche Entera
+            { "productId": "INV010", "quantity": 30, "unit": "gr" }   // Azúcar Granulada
+        ]
+    },
+    {
+        "id": "REC_BATIDO_ARANDANO",
+        "name": "Batido de Arándano (480cc)",
+        "category": "Bebidas",
+        "type": "recipe",
+        "status": "active",
+        "salePrice": 3200,
+        "yieldQuantity": 1,
+        "yieldUnit": "un",
+        "ingredients": [
+            { "productId": "INV030", "quantity": 150, "unit": "gr" }, // Arándano Congelado
+            { "productId": "INV021", "quantity": 250, "unit": "ml" }, // Leche Entera
+            { "productId": "INV010", "quantity": 30, "unit": "gr" }   // Azúcar Granulada
+        ]
+    },
+    {
+        "id": "REC_BATIDO_PLATANO",
+        "name": "Batido de Plátano (480cc)",
+        "category": "Bebidas",
+        "type": "recipe",
+        "status": "active",
+        "salePrice": 3200,
+        "yieldQuantity": 1,
+        "yieldUnit": "un",
+        "ingredients": [
+            { "productId": "INV086", "quantity": 150, "unit": "gr" }, // Plátano Maduración Media
             { "productId": "INV021", "quantity": 250, "unit": "ml" }, // Leche Entera
             { "productId": "INV010", "quantity": 30, "unit": "gr" }   // Azúcar Granulada
         ]
@@ -482,6 +596,23 @@ export const recipesData = [
             { "productId": "INV087", "quantity": 80, "unit": "ml" },  // Limón Sutil
             { "productId": "INV095", "quantity": 300, "unit": "ml" }, // Agua Purificada
             { "productId": "INV010", "quantity": 40, "unit": "gr" }   // Azúcar Granulada
+        ]
+    },
+    {
+        "id": "REC_LIMONADA_MENTA_FRAMBUESA",
+        "name": "Limonada Menta Frambuesa (480cc)",
+        "category": "Bebidas",
+        "type": "recipe",
+        "status": "active",
+        "salePrice": 4200,
+        "yieldQuantity": 1,
+        "yieldUnit": "un",
+        "ingredients": [
+            { "productId": "INV087", "quantity": 70, "unit": "ml" },  // Limón Sutil
+            { "productId": "INV095", "quantity": 280, "unit": "ml" }, // Agua Purificada
+            { "productId": "INV010", "quantity": 35, "unit": "gr" },  // Azúcar Granulada
+            { "productId": "INV029", "quantity": 60, "unit": "gr" },  // Frambuesa Congelada
+            { "productId": "INV100", "quantity": 3, "unit": "gr" }    // Menta Fresca (huerto propio)
         ]
     },
     {
@@ -525,7 +656,7 @@ export const recipesData = [
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
-            { "baseRecipeId": "BASE_FETUCCINI", "quantity": 1, "unit": "un" },
+            { "productId": "INV099", "quantity": 100, "unit": "gr" }, // Fideos Secos (Espagueti Envasado)
             { "productId": "INV016", "quantity": 120, "unit": "gr" }, // Carne Molida
             { "productId": "INV032", "quantity": 100, "unit": "gr" }  // Puré/Salsa Tomate
         ]
@@ -540,10 +671,28 @@ export const recipesData = [
         "yieldQuantity": 1,
         "yieldUnit": "un",
         "ingredients": [
-            { "baseRecipeId": "BASE_FETUCCINI", "quantity": 1, "unit": "un" },
+            { "productId": "INV099", "quantity": 100, "unit": "gr" }, // Fideos Secos (Espagueti Envasado)
             { "productId": "INV091", "quantity": 40, "unit": "gr" },  // Albahaca Fresca
             { "productId": "INV074", "quantity": 20, "unit": "gr" },  // Queso Parmesano
             { "productId": "INV004", "quantity": 20, "unit": "ml" }   // Aceite
+        ]
+    },
+    {
+        "id": "REC_FETTUCCINNI_CASERO",
+        "name": "Fettuccinni Casero",
+        "category": "Fettuccinnis",
+        "type": "recipe",
+        "status": "active",
+        "salePrice": 8500,
+        "yieldQuantity": 1,
+        "yieldUnit": "un",
+        // Salsa por defecto: Boloñesa. El cliente puede pedirlo con cualquier
+        // otra salsa disponible en la carta (ej. Pesto) — el costo reflejado
+        // aquí corresponde a esta opción por defecto.
+        "ingredients": [
+            { "baseRecipeId": "BASE_FETUCCINI", "quantity": 80, "unit": "gr" },
+            { "productId": "INV016", "quantity": 120, "unit": "gr" }, // Carne Molida
+            { "productId": "INV032", "quantity": 100, "unit": "gr" }  // Puré/Salsa Tomate
         ]
     },
     {

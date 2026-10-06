@@ -9,13 +9,15 @@ Documento completo de referencia: `docs/GUIA_DE_DEPLOYMENT.md` y
 `docs/ARCHITECTURE.md` §3 (incluye el diagrama completo del flujo
 servidor↔cliente).
 
+> Si `docs/` contradice el issue #17 "Estado SISAD" (tablero común) o el
+> código, vale el tablero o el código: `docs/` no se está actualizando por ahora.
+
 ## Qué es y por qué existe
 
-El sistema corre en el computador de escritorio del restaurante como
-servidor local; tablet y celulares se conectan por WiFi y comparten el
+El sistema corre en el computador B del restaurante (Ubuntu Server) como
+servidor local; la tablet y el celular se conectan por WiFi y comparten el
 mismo inventario/ventas casi en tiempo real (polling cada ~2s). No
-depende de internet. Ver `/areas/restaurant-app.md` (memoria del
-proyecto) para el contexto de negocio de por qué se necesitaba esto.
+depende de internet.
 
 ## Impresión de tickets
 
@@ -48,7 +50,7 @@ hasta completar esas comprobaciones.
 de Node** (`http`, `fs`, `path`, `crypto`, `url`). Nunca agregar
 `express`, `ws`, ni ninguna librería de terceros al servidor sin
 consultarlo explícitamente primero — el restaurante puede no tener
-internet disponible en el desktop para hacer `npm install` de algo
+internet disponible en el servidor para hacer `npm install` de algo
 nuevo, y cada dependencia es un punto más de falla que nadie ahí podrá
 diagnosticar. Si el polling de 2s alguna vez es insuficiente y se
 decide agregar `ws` para push en tiempo real, que sea una decisión
@@ -70,7 +72,8 @@ acciones. Si agregas un caso nuevo:
 
 ## Errores ya encontrados — no repetir
 
-- **Rutas de archivo en Windows**: nunca usar `new URL(...).pathname`
+- **Rutas de archivo en Windows** (sigue aplicando: se desarrolla en
+  Windows aunque el servidor sea Linux): nunca usar `new URL(...).pathname`
   directamente como ruta de sistema de archivos — en Windows produce
   rutas corruptas (`C:\C:\Users\...`). Siempre convertir con
   `fileURLToPath()` de `node:url` antes de pasarlo a `path.join`/`fs`.
@@ -95,3 +98,28 @@ acciones. Si agregas un caso nuevo:
   calculándose en el cliente con `useMemo` a partir del `state` que
   llega del servidor — no lo calcules en el servidor salvo que haya una
   razón concreta para moverlo ahí.
+
+## Impresión de tickets
+
+`server/printer.js` selecciona el destino con `PRINTER_MODE`:
+
+- En Windows, el valor predeterminado es `windows-share`; conserva el
+  envío con `copy /b` a `PRINTER_SHARE` (por defecto
+  `\\localhost\TICKETS`).
+- En Linux, el valor predeterminado es `device`: escribe los bytes del
+  ticket directamente en `PRINTER_DEVICE` (por defecto
+  `/dev/usb/lp0`). Usa apertura `r+`, por lo que no crea un archivo
+  normal si el dispositivo no existe. El usuario del servidor necesita
+  permisos para el dispositivo; el error sugiere revisar el grupo `lp`.
+- En Linux también se puede elegir `cups`: requiere `PRINTER_QUEUE` y
+  manda el archivo temporal como trabajo raw con
+  `lp -d <cola> -o raw` mediante `execFile`.
+
+Los trabajos se procesan en secuencia para evitar que se mezclen
+comandas y cuentas. Las pruebas automatizadas cubren selección de modo,
+envíos simulados, limpieza de temporales y cola; no prueban una impresora
+física. La impresión en el computador B con la Xprinter XP-P101 sigue
+pendiente de validación: comprobar conexión y dispositivo USB, permisos
+del usuario, elegir `device` o `cups`, imprimir comanda y cuenta reales,
+y revisar tildes y `ñ`. No afirmar que la impresora funciona en el B
+hasta completar esas comprobaciones.
