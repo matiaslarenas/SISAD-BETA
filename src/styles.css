@@ -1292,6 +1292,51 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+/* Compra directa (DirectPurchaseModal): una fila por producto. */
+.direct-purchase-lines {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.direct-purchase-line {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.direct-purchase-line-footer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 30px;
+}
+
+.direct-purchase-total {
+  margin-right: auto;
+  font-size: 1.05rem;
+}
+
+@media (max-width: 620px) {
+  .direct-purchase-line {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .direct-purchase-line .form-field:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .direct-purchase-line-footer {
+    grid-column: 1 / -1;
+    padding-top: 0;
+  }
+}
+
 .inline-action-row {
   display: flex;
   align-items: flex-end;
