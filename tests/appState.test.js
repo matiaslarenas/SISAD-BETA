@@ -8,6 +8,7 @@ import {
   closeTicket,
   createPurchaseOrder,
   DomainError,
+  getStaleTicketStatus,
   getTodayISODate,
   normalizeLoadedState,
   receivePurchaseOrder,
@@ -708,6 +709,30 @@ test(
     assert.equal(closed.sales.length, 1);
     assert.equal(closed.sales[0].status, "completed");
     assert.equal(panOnHand(closed), 18);
+  }
+);
+
+// Issue #21: si otro equipo cobra o anula la mesa que el POS tiene abierta,
+// el POS debe soltarla en vez de seguir "editando" una venta cerrada.
+test(
+  "getStaleTicketStatus is null while the open ticket is still pending",
+  () => {
+    const saved = saveTicket(buildTicketState(), { id: "VTA-1001", ...TICKET_PAYLOAD });
+
+    assert.equal(getStaleTicketStatus(saved.sales, "VTA-1001"), null);
+    assert.equal(getStaleTicketStatus(saved.sales, null), null);
+  }
+);
+
+test(
+  "getStaleTicketStatus reports an open ticket that was charged, voided or removed elsewhere",
+  () => {
+    const saved = saveTicket(buildTicketState(), { id: "VTA-1001", ...TICKET_PAYLOAD });
+    const closed = closeTicket(saved, { saleId: "VTA-1001", paymentMethod: "Efectivo", notes: "" });
+
+    assert.equal(getStaleTicketStatus(closed.sales, "VTA-1001"), "completed");
+    assert.equal(getStaleTicketStatus(voidSale(saved, "VTA-1001").sales, "VTA-1001"), "voided");
+    assert.equal(getStaleTicketStatus([], "VTA-1001"), "missing");
   }
 );
 
