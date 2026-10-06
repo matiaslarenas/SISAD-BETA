@@ -5,11 +5,13 @@ import { recipesData } from "../src/data/recipesData.js";
 import {
   addOrUpdateProduct,
   buildInventorySnapshot,
+  closeTicket,
   createPurchaseOrder,
   getTodayISODate,
   normalizeLoadedState,
   receivePurchaseOrder,
   recordSale,
+  saveTicket,
   voidSale,
 } from "../src/state/appState.js";
 
@@ -608,5 +610,100 @@ test(
     assert.equal(invAfterVoid.find((i) => i.id === "INV-FLOUR").onHand, 20);
     assert.equal(invAfterVoid.find((i) => i.id === "INV-WATER").onHand, 20);
     assert.equal(invAfterVoid.find((i) => i.id === "INV-CHEESE").onHand, 5);
+  }
+);
+
+// Estado mínimo para los tests de tickets del POS: un producto con stock
+// de 20 unidades y una receta que consume 1 unidad por porción.
+function buildTicketState() {
+  return normalizeLoadedState({
+    inventoryCatalog: [
+      {
+        id: "INV-PAN",
+        item: "Pan Amasado",
+        type: "ingredient",
+        category: "Panadería",
+        purchaseUnit: "un",
+        costPerUnit: 300,
+        minStock: 5,
+      },
+    ],
+    inventoryMovements: [
+      {
+        id: "MOV-PAN-1",
+        productId: "INV-PAN",
+        type: "purchase",
+        quantity: 20,
+        unitCost: 300,
+        movementDate: "2026-09-01",
+        reference: "Inicio",
+        notes: "",
+      },
+    ],
+    suppliers: [],
+    purchases: [],
+    recipes: [
+      {
+        id: "REC-SANDWICH",
+        name: "Sándwich",
+        category: "Fondos",
+        salePrice: 5000,
+        servings: 1,
+        ingredients: [
+          { productId: "INV-PAN", quantity: 1, unit: "un" },
+        ],
+      },
+    ],
+    sales: [],
+  });
+}
+
+const TICKET_PAYLOAD = {
+  tableOrCustomer: "Mesa 2",
+  paymentMethod: "Efectivo",
+  items: [{ type: "recipe", itemId: "REC-SANDWICH", quantity: 2 }],
+  notes: "",
+};
+
+function panOnHand(state) {
+  return buildInventorySnapshot(state.inventoryCatalog, state.inventoryMovements)
+    .find((item) => item.id === "INV-PAN").onHand;
+}
+
+// Regresión del cobro en el POS: saveTicket y closeTicket se despachaban
+// sin esperar respuesta, en paralelo. Si el cierre llega al servidor
+// antes que el guardado, no encuentra un ticket pendiente y no hace nada,
+// mientras el POS ya mostró "Venta registrada". Por eso POS.jsx debe
+// esperar a saveTicket antes de despachar closeTicket.
+test(
+  "closeTicket is a no-op when it reaches the server before saveTicket",
+  () => {
+    const state = buildTicketState();
+
+    const closedFirst = closeTicket(state, {
+      saleId: "VTA-1001",
+      paymentMethod: "Efectivo",
+      notes: "",
+    });
+    assert.equal(closedFirst, state);
+
+    const saved = saveTicket(closedFirst, { id: "VTA-1001", ...TICKET_PAYLOAD });
+    assert.equal(saved.sales[0].status, "pending");
+  }
+);
+
+test(
+  "saveTicket followed by closeTicket completes the sale and discounts stock once",
+  () => {
+    const saved = saveTicket(buildTicketState(), { id: "VTA-1001", ...TICKET_PAYLOAD });
+    const closed = closeTicket(saved, {
+      saleId: "VTA-1001",
+      paymentMethod: "Efectivo",
+      notes: "",
+    });
+
+    assert.equal(closed.sales.length, 1);
+    assert.equal(closed.sales[0].status, "completed");
+    assert.equal(panOnHand(closed), 18);
   }
 );
