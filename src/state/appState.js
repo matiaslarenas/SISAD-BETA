@@ -909,7 +909,7 @@ export function receivePurchaseOrder(
 
       return {
         ...product,
-        supplier: purchase.supplier,
+        supplier: product.supplier || purchase.supplier,
         costPerUnit: receiptItem.unitCost,
       };
     });

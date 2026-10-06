@@ -521,3 +521,75 @@ test(
     assert.equal(invAfterVoid.find((i) => i.id === "INV-CHEESE").onHand, 5);
   }
 );
+
+function receiveFromSupplier(productSupplier, purchaseSupplier) {
+  let state = normalizeLoadedState({
+    inventoryCatalog: [
+      {
+        id: "INV-20",
+        item: "Lechuga",
+        type: "ingredient",
+        category: "Verduras",
+        supplier: productSupplier,
+        location: "Frío",
+        purchaseUnit: "un",
+        costPerUnit: 800,
+        minStock: 2,
+      },
+    ],
+    inventoryMovements: [],
+    suppliers: [],
+    purchases: [],
+    recipes: [],
+  });
+
+  state = createPurchaseOrder(state, {
+    id: "OC-900",
+    supplier: purchaseSupplier,
+    category: "Verduras",
+    orderedDate: "2026-10-01",
+    items: [
+      {
+        id: "POI-9",
+        productId: "INV-20",
+        productName: "Lechuga",
+        purchaseUnit: "un",
+        quantity: 5,
+        unitCost: 950,
+      },
+    ],
+  });
+
+  return receivePurchaseOrder(state, {
+    purchaseId: "OC-900",
+    receiptDate: "2026-10-02",
+    items: [
+      {
+        id: "POI-9",
+        productId: "INV-20",
+        receivedQuantity: 5,
+        unitCost: 950,
+      },
+    ],
+  });
+}
+
+test(
+  "recibir una compra de otro proveedor no cambia el proveedor habitual del producto",
+  () => {
+    const nextState = receiveFromSupplier("Huertos Fresh", "Feria");
+
+    assert.equal(nextState.inventoryCatalog[0].supplier, "Huertos Fresh");
+    assert.equal(nextState.inventoryCatalog[0].costPerUnit, 950);
+    assert.equal(nextState.purchases[0].supplier, "Feria");
+  }
+);
+
+test(
+  "recibir una compra asigna el proveedor si el producto no tenía uno",
+  () => {
+    const nextState = receiveFromSupplier("", "Feria");
+
+    assert.equal(nextState.inventoryCatalog[0].supplier, "Feria");
+  }
+);
