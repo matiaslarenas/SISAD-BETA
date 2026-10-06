@@ -573,7 +573,7 @@ export function normalizeLoadedState(rawState = {}) {
 
   const recipes = Array.isArray(effectiveState.recipes)
     ? effectiveState.recipes.map(normalizeRecipe)
-    : defaultRecipes.map(normalizeRecipe);
+    : (recipesData || []).map(normalizeRecipe);
 
   const purchases = Array.isArray(effectiveState.purchases)
     ? effectiveState.purchases.map((purchase) =>
