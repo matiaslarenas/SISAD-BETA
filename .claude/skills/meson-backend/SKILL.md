@@ -1,6 +1,6 @@
 ---
 name: meson-backend
-description: Usar al modificar server/index.js, server/persistence.js, src/state/rootReducer.js, o al agregar una acción nueva que deba estar disponible desde tablet/celular (no solo en un dispositivo). Da las convenciones del servidor local del Sistema Restaurante El Mesón de Los Laureles y errores ya conocidos a no repetir.
+description: Usar al modificar server/index.js, server/persistence.js, server/printer.js, src/state/rootReducer.js, o al agregar una acción nueva que deba estar disponible desde tablet/celular (no solo en un dispositivo). Da las convenciones del servidor local y la impresión de tickets del Sistema Restaurante El Mesón de Los Laureles, y errores ya conocidos a no repetir.
 ---
 
 # Servidor local — El Mesón de Los Laureles
@@ -16,6 +16,31 @@ servidor local; tablet y celulares se conectan por WiFi y comparten el
 mismo inventario/ventas casi en tiempo real (polling cada ~2s). No
 depende de internet. Ver `/areas/restaurant-app.md` (memoria del
 proyecto) para el contexto de negocio de por qué se necesitaba esto.
+
+## Impresión de tickets
+
+`server/printer.js` selecciona el destino con `PRINTER_MODE`:
+
+- En Windows, el valor predeterminado es `windows-share`; conserva el
+  envío con `copy /b` a `PRINTER_SHARE` (por defecto
+  `\\localhost\TICKETS`).
+- En Linux, el valor predeterminado es `device`: escribe los bytes del
+  ticket directamente en `PRINTER_DEVICE` (por defecto
+  `/dev/usb/lp0`). Usa apertura `r+`, por lo que no crea un archivo
+  normal si el dispositivo no existe. El usuario del servidor necesita
+  permisos para el dispositivo; el error sugiere revisar el grupo `lp`.
+- En Linux también se puede elegir `cups`: requiere `PRINTER_QUEUE` y
+  manda el archivo temporal como trabajo raw con
+  `lp -d <cola> -o raw` mediante `execFile`.
+
+Los trabajos se procesan en secuencia para evitar que se mezclen
+comandas y cuentas. Las pruebas automatizadas cubren selección de modo,
+envíos simulados, limpieza de temporales y cola; no prueban una impresora
+física. La impresión en el computador B con la Xprinter XP-P101 sigue
+pendiente de validación: comprobar conexión y dispositivo USB, permisos
+del usuario, elegir `device` o `cups`, imprimir comanda y cuenta reales,
+y revisar tildes y `ñ`. No afirmar que la impresora funciona en el B
+hasta completar esas comprobaciones.
 
 ## Regla no negociable: sin dependencias externas
 
