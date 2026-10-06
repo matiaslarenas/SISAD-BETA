@@ -76,5 +76,7 @@ export const inventoryData = [
     { id: "INV095", item: "Agua Purificada", type: "ingredient", category: "Abarrotes", supplier: "", location: "Bodega", purchaseUnit: "lt", costPerUnit: 0, onHand: 0, minStock: 20 },
     { id: "INV096", item: "Queso Cheddar Fundido", type: "ingredient", category: "Lácteos", supplier: "", location: "Refrigerador", purchaseUnit: "lt", costPerUnit: 7500, onHand: 0, minStock: 2 },
     { id: "INV097", item: "Bastones Mozzarella", type: "ingredient", category: "Lácteos", supplier: "", location: "Congelador", purchaseUnit: "un", costPerUnit: 350, onHand: 0, minStock: 50 },
-    { id: "INV098", item: "Panko / Pan Rallado", type: "ingredient", category: "Abarrotes", supplier: "", location: "Bodega", purchaseUnit: "kg", costPerUnit: 2800, onHand: 0, minStock: 3 }
+    { id: "INV098", item: "Panko / Pan Rallado", type: "ingredient", category: "Abarrotes", supplier: "", location: "Bodega", purchaseUnit: "kg", costPerUnit: 2800, onHand: 0, minStock: 3 },
+    { id: "INV099", item: "Fideos Secos (Espagueti Envasado)", type: "ingredient", category: "Abarrotes", supplier: "", location: "Bodega", purchaseUnit: "kg", costPerUnit: 1100, onHand: 0, minStock: 10 },
+    { id: "INV100", item: "Menta Fresca (huerto propio)", type: "ingredient", category: "Verduras", supplier: "", location: "Refrigerador", purchaseUnit: "kg", costPerUnit: 0, onHand: 0, minStock: 0.5 }
 ];

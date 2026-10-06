@@ -14,6 +14,16 @@ import {
   Utensils,
   ShoppingBag,
   Printer,
+  ArrowLeft,
+  Pizza,
+  Sandwich,
+  Soup,
+  Beef,
+  CookingPot,
+  UtensilsCrossed,
+  CupSoda,
+  GlassWater,
+  Coffee,
 } from "lucide-react";
 
 import MetricCard from "../components/MetricCard";
@@ -31,6 +41,39 @@ const PAYMENT_OPTIONS = [
   "Efectivo",
   "Transferencia",
 ];
+
+// Orden fijo en que deben aparecer las categorías en la carta del POS.
+// Categorías no listadas aquí (ej. una nueva agregada a futuro) caen al final.
+const MENU_CATEGORY_ORDER = [
+  "Pizzas",
+  "Empanadas",
+  "Fettuccinnis",
+  "Almuerzos",
+  "Papas Fritas",
+  "Extras",
+  "Bebestibles",
+  "Bebidas",
+  "Cafetería",
+];
+
+function categoryRank(category) {
+  const index = MENU_CATEGORY_ORDER.indexOf(category);
+  return index === -1 ? MENU_CATEGORY_ORDER.length : index;
+}
+
+// Icono representativo por categoría en la vista de "carpetas" del POS.
+// Categorías no listadas aquí (ej. una nueva agregada a futuro) usan Utensils.
+const CATEGORY_ICONS = {
+  Pizzas: Pizza,
+  Empanadas: Sandwich,
+  Fettuccinnis: Soup,
+  Almuerzos: Beef,
+  "Papas Fritas": CookingPot,
+  Extras: UtensilsCrossed,
+  Bebestibles: CupSoda,
+  Bebidas: GlassWater,
+  Cafetería: Coffee,
+};
 
 export default function POS() {
   const {
@@ -57,6 +100,9 @@ export default function POS() {
   const [activeTicketId, setActiveTicketId] = useState(null);
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState("");
+  // Bloquea los botones mientras el servidor responde, para que un doble
+  // toque no despache dos veces el mismo ticket.
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Categories list
   const categories = useMemo(() => {
@@ -67,7 +113,8 @@ export default function POS() {
     inventory
       .filter((i) => i.type === "resale")
       .forEach((i) => i.category && set.add(i.category));
-    return Array.from(set);
+    const [todas, ...rest] = Array.from(set);
+    return [todas, ...rest.sort((a, b) => categoryRank(a) - categoryRank(b))];
   }, [recipes, inventory]);
 
   // Combine sellable items: recipes + resale products
@@ -119,16 +166,34 @@ export default function POS() {
 
   // Filtered menu
   const filteredItems = useMemo(() => {
-    return sellableItems.filter((item) => {
-      const matchesSearch = item.name
-        .toLowerCase()
-        .includes(search.toLowerCase());
-      const matchesCategory =
-        selectedCategory === "Todas" ||
-        item.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    });
+    return sellableItems
+      .filter((item) => {
+        const matchesSearch = item.name
+          .toLowerCase()
+          .includes(search.toLowerCase());
+        const matchesCategory =
+          selectedCategory === "Todas" ||
+          item.category === selectedCategory;
+        return matchesSearch && matchesCategory;
+      })
+      .sort((a, b) => categoryRank(a.category) - categoryRank(b.category));
   }, [sellableItems, search, selectedCategory]);
+
+  // "Carpetas" por categoría: una tarjeta grande por categoría con el conteo
+  // de ítems, para que el mesero entre directo al grupo que necesita en vez
+  // de scrollear una lista plana con las 9 categorías mezcladas.
+  const categoryTiles = useMemo(() => {
+    const counts = new Map();
+    sellableItems.forEach((item) => {
+      counts.set(item.category, (counts.get(item.category) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([category, count]) => ({ category, count }))
+      .sort((a, b) => categoryRank(a.category) - categoryRank(b.category));
+  }, [sellableItems]);
+
+  const isBrowsingCategories =
+    selectedCategory === "Todas" && search.trim() === "";
 
   // Ticket calculations
   const ticketTotals = useMemo(() => {
@@ -307,7 +372,9 @@ export default function POS() {
 
   // Guarda la mesa/pedido actual como pendiente (comanda enviada a cocina):
   // el stock se reserva de inmediato, pero la venta aún no se cobra.
-  const handleSaveTicket = () => {
+  const handleSaveTicket = async () => {
+    if (isSubmitting) return;
+
     const salePayload = {
       tableOrCustomer,
       paymentMethod,
@@ -329,8 +396,17 @@ export default function POS() {
       return;
     }
 
+    // dispatch ya muestra el error del servidor con un toast y lo relanza:
+    // si falla, se conserva el formulario para reintentar.
     const ticketId = activeTicketId || generateSaleId();
-    saveTicket({ id: ticketId, ...salePayload });
+    setIsSubmitting(true);
+    try {
+      await saveTicket({ id: ticketId, ...salePayload });
+    } catch {
+      return;
+    } finally {
+      setIsSubmitting(false);
+    }
 
     toast.success(`Pedido guardado para ${tableOrCustomer}`, {
       description: "Stock reservado. La mesa quedó activa para seguir agregando productos o cobrar.",
@@ -338,8 +414,9 @@ export default function POS() {
     resetCurrentForm();
   };
 
-  const handleCompleteSale = (e) => {
+  const handleCompleteSale = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     const salePayload = {
       tableOrCustomer,
@@ -365,9 +442,21 @@ export default function POS() {
     // Sincroniza el ticket (crea o actualiza) con los ítems actuales y
     // luego lo cierra: garantiza que el stock descontado siempre coincide
     // con lo que finalmente se cobró, venga o no de una mesa pendiente.
+    // closeTicket debe esperar a saveTicket: si llega antes al servidor no
+    // encuentra el ticket pendiente y no cierra nada.
     const ticketId = activeTicketId || generateSaleId();
-    saveTicket({ id: ticketId, ...salePayload });
-    closeTicket({ saleId: ticketId, paymentMethod, notes: ticketNotes });
+    setIsSubmitting(true);
+    try {
+      await saveTicket({ id: ticketId, ...salePayload });
+      // Si el cierre falla, el reintento debe actualizar este mismo ticket
+      // pendiente en vez de crear otro con un id nuevo.
+      setActiveTicketId(ticketId);
+      await closeTicket({ saleId: ticketId, paymentMethod, notes: ticketNotes });
+    } catch {
+      return;
+    } finally {
+      setIsSubmitting(false);
+    }
 
     toast.success(`¡Venta registrada con éxito!`, {
       description: `${tableOrCustomer} • ${formatCurrency(ticketTotals.totalAmount)} (Stock descontado)`,
@@ -436,9 +525,13 @@ export default function POS() {
     }
   };
 
-  const handleCancelPendingTicket = (saleId) => {
+  const handleCancelPendingTicket = async (saleId) => {
     if (window.confirm(`¿Anular el pedido pendiente ${saleId}? Se reintegrará el stock reservado.`)) {
-      voidSale(saleId);
+      try {
+        await voidSale(saleId);
+      } catch {
+        return;
+      }
       if (activeTicketId === saleId) {
         resetCurrentForm();
       }
@@ -448,9 +541,13 @@ export default function POS() {
     }
   };
 
-  const handleVoidSale = (saleId) => {
+  const handleVoidSale = async (saleId) => {
     if (window.confirm(`¿Estás seguro de anular la venta ${saleId}? Se reintegrará el stock de los ingredientes.`)) {
-      voidSale(saleId);
+      try {
+        await voidSale(saleId);
+      } catch {
+        return;
+      }
       toast.info(`Venta ${saleId} anulada`, {
         description: "Los ingredientes han sido reintegrados al inventario.",
       });
@@ -559,7 +656,11 @@ export default function POS() {
           <section className="panel pos-menu-panel">
             <div className="panel-header">
               <h3>Carta & Productos Disponibles</h3>
-              <span className="pill neutral">{filteredItems.length} opciones</span>
+              <span className="pill neutral">
+                {isBrowsingCategories
+                  ? `${categoryTiles.length} categorías`
+                  : `${filteredItems.length} opciones`}
+              </span>
             </div>
 
             <div className="filters-row" style={{ marginBottom: 18 }}>
@@ -577,63 +678,102 @@ export default function POS() {
               />
             </div>
 
-            <div className="pos-items-grid">
-              {filteredItems.map((item) => {
-                const isOutOfStock = item.maxPortions <= 0;
-                return (
-                  <div
-                    key={`${item.type}-${item.id}`}
-                    className={`pos-item-card ${isOutOfStock ? "out-of-stock" : ""}`}
-                    onClick={() => !isOutOfStock && handleAddItem(item)}
-                    role="button"
-                    tabIndex={isOutOfStock ? -1 : 0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        if (!isOutOfStock) handleAddItem(item);
-                      }
-                    }}
-                  >
-                    <div className="pos-item-header">
+            {!isBrowsingCategories && selectedCategory !== "Todas" && (
+              <button
+                type="button"
+                className="pos-back-button"
+                onClick={() => setSelectedCategory("Todas")}
+              >
+                <ArrowLeft size={15} />
+                Volver a categorías
+              </button>
+            )}
+
+            {isBrowsingCategories ? (
+              <div className="pos-category-grid">
+                {categoryTiles.map(({ category, count }) => {
+                  const CategoryIcon = CATEGORY_ICONS[category] || Utensils;
+                  return (
+                    <div
+                      key={category}
+                      className="pos-category-card"
+                      onClick={() => setSelectedCategory(category)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          setSelectedCategory(category);
+                        }
+                      }}
+                    >
+                      <CategoryIcon className="pos-category-icon" size={28} />
+                      <h4 className="pos-category-name">{category}</h4>
                       <span className="pill neutral" style={{ fontSize: "0.72rem" }}>
-                        {item.category}
-                      </span>
-                      <span
-                        className={`pos-stock-badge ${isOutOfStock
-                          ? "stock-out"
-                          : item.maxPortions <= 3
-                            ? "stock-low"
-                            : "stock-ok"
-                          }`}
-                      >
-                        {isOutOfStock
-                          ? "Sin stock"
-                          : `${item.maxPortions} disp.`}
+                        {count} ítem{count === 1 ? "" : "s"}
                       </span>
                     </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="pos-items-grid">
+                {filteredItems.map((item) => {
+                  const isOutOfStock = item.maxPortions <= 0;
+                  return (
+                    <div
+                      key={`${item.type}-${item.id}`}
+                      className={`pos-item-card ${isOutOfStock ? "out-of-stock" : ""}`}
+                      onClick={() => !isOutOfStock && handleAddItem(item)}
+                      role="button"
+                      tabIndex={isOutOfStock ? -1 : 0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          if (!isOutOfStock) handleAddItem(item);
+                        }
+                      }}
+                    >
+                      <div className="pos-item-header">
+                        <span className="pill neutral" style={{ fontSize: "0.72rem" }}>
+                          {item.category}
+                        </span>
+                        <span
+                          className={`pos-stock-badge ${isOutOfStock
+                            ? "stock-out"
+                            : item.maxPortions <= 3
+                              ? "stock-low"
+                              : "stock-ok"
+                            }`}
+                        >
+                          {isOutOfStock
+                            ? "Sin stock"
+                            : `${item.maxPortions} disp.`}
+                        </span>
+                      </div>
 
-                    <h4 className="pos-item-title">{item.name}</h4>
+                      <h4 className="pos-item-title">{item.name}</h4>
 
-                    <div className="pos-item-footer">
-                      <strong className="pos-item-price">
-                        {formatCurrency(item.salePrice)}
-                      </strong>
-                      <button
-                        type="button"
-                        className="mini-btn add-btn"
-                        disabled={isOutOfStock}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddItem(item);
-                        }}
-                        aria-label={`Agregar ${item.name} al ticket`}
-                      >
-                        <Plus size={15} />
-                      </button>
+                      <div className="pos-item-footer">
+                        <strong className="pos-item-price">
+                          {formatCurrency(item.salePrice)}
+                        </strong>
+                        <button
+                          type="button"
+                          className="mini-btn add-btn"
+                          disabled={isOutOfStock}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddItem(item);
+                          }}
+                          aria-label={`Agregar ${item.name} al ticket`}
+                        >
+                          <Plus size={15} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           {/* Right Column: Ticket / Cart */}
@@ -786,6 +926,7 @@ export default function POS() {
                       className="secondary-btn"
                       style={{ flex: 1, padding: "14px 18px", fontSize: "0.95rem" }}
                       onClick={handleSaveTicket}
+                      disabled={isSubmitting}
                     >
                       {activeTicketId ? "Actualizar Pedido" : "Guardar Pedido"}
                     </button>
@@ -813,6 +954,7 @@ export default function POS() {
                       type="submit"
                       className="primary-btn checkout-btn"
                       style={{ flex: 1, padding: "14px 18px", fontSize: "1.05rem" }}
+                      disabled={isSubmitting}
                     >
                       Cobrar & Cerrar
                     </button>

@@ -1292,6 +1292,51 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+/* Compra directa (DirectPurchaseModal): una fila por producto. */
+.direct-purchase-lines {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.direct-purchase-line {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.direct-purchase-line-footer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 30px;
+}
+
+.direct-purchase-total {
+  margin-right: auto;
+  font-size: 1.05rem;
+}
+
+@media (max-width: 620px) {
+  .direct-purchase-line {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .direct-purchase-line .form-field:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .direct-purchase-line-footer {
+    grid-column: 1 / -1;
+    padding-top: 0;
+  }
+}
+
 .inline-action-row {
   display: flex;
   align-items: flex-end;
@@ -1476,6 +1521,62 @@ button:disabled {
 .pos-item-price {
   font-size: 1.05rem;
   color: var(--primary);
+}
+
+.pos-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0 0 14px;
+  cursor: pointer;
+}
+
+.pos-back-button:hover {
+  text-decoration: underline;
+}
+
+.pos-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.pos-category-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  min-height: 140px;
+}
+
+.pos-category-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--primary);
+  box-shadow: 0 10px 24px rgba(29, 105, 81, 0.09);
+}
+
+.pos-category-icon {
+  color: var(--primary);
+}
+
+.pos-category-name {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .add-btn {

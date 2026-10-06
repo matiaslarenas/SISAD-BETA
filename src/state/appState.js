@@ -15,6 +15,10 @@ import {
   calculateRecipeMaxPortions,
   flattenRecipeIngredients,
 } from "../utils/recipeCalculator.js";
+import {
+  hasValidationErrors,
+  validateDirectPurchaseForm,
+} from "../utils/validation.js";
 
 /**
  * Convierte una cantidad de la unidad de receta a la unidad de compra/inventario.
@@ -77,6 +81,16 @@ export const SALE_STATUSES = {
   COMPLETED: "completed",
   VOIDED: "voided",
 };
+
+// Error de una regla de negocio: su mensaje está pensado para quien usa
+// la caja, por lo que el servidor lo devuelve tal cual al cliente. Los
+// demás errores se responden con un mensaje genérico.
+export class DomainError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "DomainError";
+  }
+}
 
 const LEGACY_SALE_STATUS_MAP = {
   open: SALE_STATUSES.PENDING,
@@ -573,7 +587,7 @@ export function normalizeLoadedState(rawState = {}) {
 
   const recipes = Array.isArray(effectiveState.recipes)
     ? effectiveState.recipes.map(normalizeRecipe)
-    : defaultRecipes.map(normalizeRecipe);
+    : (recipesData || []).map(normalizeRecipe);
 
   const purchases = Array.isArray(effectiveState.purchases)
     ? effectiveState.purchases.map((purchase) =>
@@ -909,7 +923,9 @@ export function receivePurchaseOrder(
 
       return {
         ...product,
-        supplier: purchase.supplier,
+        supplier:
+          String(product.supplier || "").trim() ||
+          purchase.supplier,
         costPerUnit: receiptItem.unitCost,
       };
     });
@@ -966,6 +982,74 @@ export function receivePurchaseOrder(
     inventoryMovements: nextMovements,
     purchases: nextPurchases,
   };
+}
+
+// Siguiente id de compra según el mayor OC-n existente (no según la
+// cantidad de compras, que puede tener huecos tras un reset o restauración).
+function generatePurchaseId(state) {
+  const maxNumber = state.purchases.reduce((max, purchase) => {
+    const match = /^OC-(\d+)$/.exec(String(purchase.id || ""));
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 1000);
+  return `OC-${maxNumber + 1}`;
+}
+
+function firstDirectPurchaseError(errors) {
+  if (errors.supplier) return errors.supplier;
+  if (errors.purchaseDate) return errors.purchaseDate;
+  if (errors.lines) {
+    const [index, lineErrors] = Object.entries(errors.lines)[0];
+    return `Producto ${Number(index) + 1}: ${Object.values(lineErrors)[0]}`;
+  }
+  return errors.items;
+}
+
+// Compra directa: lo comprado ya llegó (feria, supermercado, proveedor
+// que entrega al momento), así que se crea la compra y se recibe en un
+// solo paso. El stock sube con un movimiento de compra al precio pagado,
+// que queda congelado, y ese precio pasa a ser el costo vigente.
+export function recordDirectPurchase(
+  state,
+  { supplier, purchaseDate, notes, items }
+) {
+  const errors = validateDirectPurchaseForm({ supplier, purchaseDate, items });
+  if (hasValidationErrors(errors)) {
+    throw new DomainError(firstDirectPurchaseError(errors));
+  }
+
+  const missing = items.find(
+    (item) => !state.inventoryCatalog.some((product) => product.id === item.productId)
+  );
+  if (missing) {
+    throw new DomainError(
+      `El producto ${missing.productId} no existe en el inventario. Actualiza la pantalla e intenta de nuevo.`
+    );
+  }
+
+  const purchaseId = generatePurchaseId(state);
+  const created = createPurchaseOrder(state, {
+    id: purchaseId,
+    supplier,
+    orderedDate: purchaseDate,
+    notes,
+    items: items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      unitCost: item.unitCost,
+    })),
+  });
+
+  const purchase = created.purchases.find((entry) => entry.id === purchaseId);
+
+  return receivePurchaseOrder(created, {
+    purchaseId,
+    receiptDate: purchaseDate,
+    receiptNotes: notes,
+    items: purchase.items.map((item) => ({
+      ...item,
+      receivedQuantity: item.quantity,
+    })),
+  });
 }
 
 export function generateSaleId(state) {
@@ -1134,6 +1218,20 @@ export function saveTicket(
   state,
   { id, tableOrCustomer, paymentMethod, items, notes }
 ) {
+  // Un id que ya pertenece a una venta cobrada o anulada no se puede
+  // reutilizar: se borrarían sus movimientos de stock y quedaría el id
+  // duplicado. Se rechaza para que el servidor responda con error.
+  const usedId = id?.trim()
+    ? state.sales.find((s) => s.id === id.trim())
+    : null;
+  if (usedId && usedId.status !== SALE_STATUSES.PENDING) {
+    const statusLabel =
+      usedId.status === SALE_STATUSES.VOIDED ? "anulada" : "cobrada";
+    throw new DomainError(
+      `La venta ${usedId.id} ya fue ${statusLabel} y no se puede modificar. Actualiza la pantalla e intenta de nuevo.`
+    );
+  }
+
   const existing = id
     ? state.sales.find(
       (s) => s.id === id && s.status === SALE_STATUSES.PENDING

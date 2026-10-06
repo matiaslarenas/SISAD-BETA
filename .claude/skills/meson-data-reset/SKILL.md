@@ -42,8 +42,11 @@ Recién con eso confirmado, escribir el script.
 
 | Script | Mantiene | Vacía |
 |---|---|---|
-| `reset-to-empty.js` | Nada — estado completamente vacío | Todo: catálogo, recetas, proveedores, movimientos, ventas, compras |
 | `reset-quantities-and-history.js` | Catálogo, recetas, proveedores | Movimientos (→ stock en 0), ventas, compras |
+
+`reset-to-empty.js` (vaciar todo) se menciona en `CHANGELOG.md`, pero
+**no existe** en el repo. Si hace falta, se escribe nuevo con el patrón
+de abajo. La protección de estos scripts está pendiente en el issue #11.
 
 Si se necesita una combinación distinta, escribir un script nuevo
 siguiendo el mismo patrón (ver abajo) en vez de modificar el alcance de
@@ -80,5 +83,5 @@ hace falta reconstruir el objeto entero a mano.
    `buildInventorySnapshot` u otra consulta que el resultado sea
    exactamente el esperado (qué quedó, qué se vació, que el stock
    derivado dé 0 si corresponde).
-3. **Recomendar backup antes de correr** (Panel → Respaldar Datos) —
+3. **Recomendar backup antes de correr** (botón "Respaldar JSON" del Panel) —
    siempre, incluso cuando el alcance ya está confirmado.

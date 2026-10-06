@@ -8,6 +8,9 @@ description: Usar al corregir un bug o agregar lógica de dominio nueva en el Si
 Documento completo de referencia: `docs/ESTRATEGIA_DE_PRUEBAS.md`. Léelo si
 necesitas más detalle de cobertura o invariantes.
 
+> Si `docs/` contradice el issue #17 "Estado SISAD" (tablero común) o el
+> código, vale el tablero o el código: `docs/` no se está actualizando por ahora.
+
 ## Stack (no cambiar)
 
 `node:test` + `node:assert/strict`. Sin Jest, Vitest, ni Testing Library.
@@ -24,6 +27,7 @@ Sin mocks de DOM. Correr con `npm test`.
 | Motor de alertas | `tests/alerts.test.js` |
 | Invariantes matemáticas (idempotencia, reversibilidad, congelamiento de costos) | `tests/invariants.test.js` |
 | Persistencia del servidor (estado corrupto/vacío, instalación nueva, guardado y respaldo exportado) | `tests/persistence.test.js` |
+| Impresión de tickets (`server/printer.js`) | `tests/printer.test.js` |
 
 ## Regla no negociable
 

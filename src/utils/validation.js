@@ -266,6 +266,63 @@ export function validateReceiptForm(
   return errors;
 }
 
+// Compra directa (se registra ya recibida, en un solo paso). Cada línea
+// usa las mismas reglas que un ítem de orden de compra; los errores por
+// línea van en errors.lines[índice].
+export function validateDirectPurchaseForm(
+  values
+) {
+  const errors = {};
+
+  if (!hasValue(values.supplier)) {
+    errors.supplier =
+      "Ingresa el proveedor.";
+  }
+
+  if (!hasValue(values.purchaseDate)) {
+    errors.purchaseDate =
+      "Selecciona la fecha de la compra.";
+  }
+
+  if (
+    !Array.isArray(values.items) ||
+    values.items.length === 0
+  ) {
+    errors.items =
+      "Agrega al menos un producto a la compra.";
+    return errors;
+  }
+
+  const lines = {};
+  const seenProducts = new Set();
+
+  values.items.forEach((item, index) => {
+    const lineErrors =
+      validatePurchaseItemForm(item);
+
+    if (
+      hasValue(item.productId) &&
+      seenProducts.has(item.productId)
+    ) {
+      lineErrors.productId =
+        "Este producto ya está en otra línea.";
+    }
+    seenProducts.add(item.productId);
+
+    if (hasValidationErrors(lineErrors)) {
+      lines[index] = lineErrors;
+    }
+  });
+
+  if (hasValidationErrors(lines)) {
+    errors.lines = lines;
+    errors.items =
+      "Revisa los productos marcados.";
+  }
+
+  return errors;
+}
+
 export function validateSaleForm(
   values
 ) {
