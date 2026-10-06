@@ -1523,6 +1523,62 @@ button:disabled {
   color: var(--primary);
 }
 
+.pos-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0 0 14px;
+  cursor: pointer;
+}
+
+.pos-back-button:hover {
+  text-decoration: underline;
+}
+
+.pos-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.pos-category-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  min-height: 140px;
+}
+
+.pos-category-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--primary);
+  box-shadow: 0 10px 24px rgba(29, 105, 81, 0.09);
+}
+
+.pos-category-icon {
+  color: var(--primary);
+}
+
+.pos-category-name {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
 .add-btn {
   background: var(--primary-soft);
   color: var(--primary);
