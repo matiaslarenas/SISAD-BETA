@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { recipesData } from "../src/data/recipesData.js";
 
 import {
   addOrUpdateProduct,
@@ -80,6 +81,22 @@ test(
       inventory[0].inventoryValue,
       14400
     );
+  }
+);
+
+test(
+  "normalizeLoadedState usa las recetas semilla cuando el estado no trae recipes",
+  () => {
+    const state = normalizeLoadedState({
+      inventoryCatalog: [],
+      inventoryMovements: [],
+      suppliers: [],
+      purchases: [],
+      sales: [],
+    });
+
+    assert.equal(Array.isArray(state.recipes), true);
+    assert.equal(state.recipes.length, recipesData.length);
   }
 );
 
