@@ -17,6 +17,9 @@ de escribir o modificar una fórmula si no lo tienes en contexto.
   del producto.
 - **Costo vigente**: `unitCost` del último movimiento que modificó el
   producto (recepción de compra o ajuste manual).
+- **Proveedor habitual**: recibir una compra **no** cambia el `supplier`
+  del producto; el proveedor de cada compra queda en la compra misma. Solo
+  si el producto no tenía proveedor se toma el de la compra (issue #13).
 - **Costo de receta**: `Σ(ingredient.quantity_normalizada * ingredient.unitCost)`.
   La normalización de unidades pasa siempre por `normalizeQuantity` en
   `recipeCalculator.js` — nunca multipliques cantidades sin verificar que
