@@ -7,6 +7,7 @@ import {
   buildInventorySnapshot,
   closeTicket,
   createPurchaseOrder,
+  DomainError,
   getTodayISODate,
   normalizeLoadedState,
   receivePurchaseOrder,
@@ -705,5 +706,57 @@ test(
     assert.equal(closed.sales.length, 1);
     assert.equal(closed.sales[0].status, "completed");
     assert.equal(panOnHand(closed), 18);
+  }
+);
+
+// Regresión: saveTicket solo reconocía tickets PENDING, pero siempre
+// borraba los movimientos de venta con ese id. Con el id de una venta ya
+// cobrada (o anulada) duplicaba el id y rehacía su descuento de stock.
+// Pasa, por ejemplo, si el cliente genera un id con un estado desfasado.
+test(
+  "saveTicket rejects the id of a sale that is already completed",
+  () => {
+    const saved = saveTicket(buildTicketState(), { id: "VTA-1001", ...TICKET_PAYLOAD });
+    const closed = closeTicket(saved, {
+      saleId: "VTA-1001",
+      paymentMethod: "Efectivo",
+      notes: "",
+    });
+
+    assert.throws(
+      () => saveTicket(closed, { id: "VTA-1001", ...TICKET_PAYLOAD }),
+      (error) =>
+        error instanceof DomainError && /VTA-1001 ya fue cobrada/.test(error.message)
+    );
+  }
+);
+
+test(
+  "saveTicket rejects the id of a voided sale so its stock is not restored twice",
+  () => {
+    const saved = saveTicket(buildTicketState(), { id: "VTA-1001", ...TICKET_PAYLOAD });
+    const voided = voidSale(saved, "VTA-1001");
+    assert.equal(panOnHand(voided), 20);
+
+    assert.throws(
+      () => saveTicket(voided, { id: "VTA-1001", ...TICKET_PAYLOAD }),
+      (error) =>
+        error instanceof DomainError && /VTA-1001 ya fue anulada/.test(error.message)
+    );
+  }
+);
+
+test(
+  "saveTicket on a pending ticket replaces its stock reservation instead of adding to it",
+  () => {
+    const saved = saveTicket(buildTicketState(), { id: "VTA-1001", ...TICKET_PAYLOAD });
+    const updated = saveTicket(saved, {
+      id: "VTA-1001",
+      ...TICKET_PAYLOAD,
+      items: [{ type: "recipe", itemId: "REC-SANDWICH", quantity: 3 }],
+    });
+
+    assert.equal(updated.sales.length, 1);
+    assert.equal(panOnHand(updated), 17);
   }
 );

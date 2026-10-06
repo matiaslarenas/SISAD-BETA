@@ -78,6 +78,16 @@ export const SALE_STATUSES = {
   VOIDED: "voided",
 };
 
+// Error de una regla de negocio: su mensaje está pensado para quien usa
+// la caja, por lo que el servidor lo devuelve tal cual al cliente. Los
+// demás errores se responden con un mensaje genérico.
+export class DomainError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "DomainError";
+  }
+}
+
 const LEGACY_SALE_STATUS_MAP = {
   open: SALE_STATUSES.PENDING,
 };
@@ -1136,6 +1146,20 @@ export function saveTicket(
   state,
   { id, tableOrCustomer, paymentMethod, items, notes }
 ) {
+  // Un id que ya pertenece a una venta cobrada o anulada no se puede
+  // reutilizar: se borrarían sus movimientos de stock y quedaría el id
+  // duplicado. Se rechaza para que el servidor responda con error.
+  const usedId = id?.trim()
+    ? state.sales.find((s) => s.id === id.trim())
+    : null;
+  if (usedId && usedId.status !== SALE_STATUSES.PENDING) {
+    const statusLabel =
+      usedId.status === SALE_STATUSES.VOIDED ? "anulada" : "cobrada";
+    throw new DomainError(
+      `La venta ${usedId.id} ya fue ${statusLabel} y no se puede modificar. Actualiza la pantalla e intenta de nuevo.`
+    );
+  }
+
   const existing = id
     ? state.sales.find(
       (s) => s.id === id && s.status === SALE_STATUSES.PENDING
