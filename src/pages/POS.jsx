@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Store,
   DollarSign,
@@ -35,6 +35,7 @@ import {
   buildTicketInventory,
   formatDisplayDate,
   getSellableMaxPortions,
+  getStaleTicketStatus,
   getTodayISODate,
 } from "../state/appState";
 import { hasValidationErrors, validateSaleForm } from "../utils/validation";
@@ -59,6 +60,15 @@ const MENU_CATEGORY_ORDER = [
   "Bebidas",
   "Cafetería",
 ];
+
+const STALE_TICKET_LABELS = {
+  completed: "ya fue cobrado en otro equipo",
+  voided: "fue anulado en otro equipo",
+  missing: "ya no está entre las mesas activas",
+};
+
+const STALE_TICKET_HINT =
+  "Lo que estaba en pantalla quedó como pedido nuevo, sin guardar. Si ya se cobró, vacía el ticket; si son productos nuevos, guárdalo como pedido nuevo.";
 
 function categoryRank(category) {
   const index = MENU_CATEGORY_ORDER.indexOf(category);
@@ -108,6 +118,9 @@ export default function POS() {
   // Bloquea los botones mientras el servidor responde, para que un doble
   // toque no despache dos veces el mismo ticket.
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Aviso de que la mesa abierta en pantalla dejó de estar pendiente
+  // porque otro equipo la cobró o anuló (issue #21).
+  const [staleTicketNotice, setStaleTicketNotice] = useState("");
   // Ítems (por clave tipo-id) que la persona ya aceptó vender sobre el
   // stock en este ticket, para no repetirle el aviso en cada "+".
   const [overStockConfirmed, setOverStockConfirmed] = useState(() => new Set());
@@ -284,6 +297,21 @@ export default function POS() {
     [sales]
   );
 
+  // Si la mesa abierta en pantalla ya no está pendiente en el servidor, el
+  // POS la suelta: deja de "editarla" (un guardado sería rechazado, #7)
+  // pero conserva lo ingresado para no perderlo (issue #21). Mientras este
+  // mismo equipo cobra o anula, el cierre propio no cuenta como externo.
+  useEffect(() => {
+    if (isSubmitting) return;
+    const staleStatus = getStaleTicketStatus(sales, activeTicketId);
+    if (!staleStatus) return;
+
+    const message = `El pedido ${activeTicketId} ${STALE_TICKET_LABELS[staleStatus]}.`;
+    setActiveTicketId(null);
+    setStaleTicketNotice(message);
+    toast.warning(message, { description: STALE_TICKET_HINT });
+  }, [sales, activeTicketId, isSubmitting]);
+
   const posMetrics = useMemo(() => {
     const todayRevenue = todaySales.reduce((sum, s) => sum + s.totalAmount, 0);
     const avgTicket = todaySales.length > 0 ? todayRevenue / todaySales.length : 0;
@@ -391,6 +419,7 @@ El stock quedará en negativo.`)) return false;
 
   const handleClearTicket = () => {
     setTicketItems([]);
+    setStaleTicketNotice("");
     setOverStockConfirmed(new Set());
     setErrors({});
     setSuccessMessage("");
@@ -403,6 +432,7 @@ El stock quedará en negativo.`)) return false;
     setPaymentMethod("Tarjeta / Débito");
     setTicketNotes("");
     setActiveTicketId(null);
+    setStaleTicketNotice("");
     setOverStockConfirmed(new Set());
     setErrors({});
   };
@@ -410,6 +440,7 @@ El stock quedará en negativo.`)) return false;
   // Carga una mesa/pedido pendiente en pantalla para agregar productos o cobrar
   const handleSelectPendingTicket = (ticket) => {
     setActiveTicketId(ticket.id);
+    setStaleTicketNotice("");
     setOverStockConfirmed(new Set());
     setTableOrCustomer(ticket.tableOrCustomer);
     setPaymentMethod(ticket.paymentMethod || "Tarjeta / Débito");
@@ -583,11 +614,15 @@ El stock quedará en negativo.`)) return false;
   };
 
   const handleCancelPendingTicket = async (saleId) => {
+    if (isSubmitting) return;
     if (window.confirm(`¿Anular el pedido pendiente ${saleId}? Se reintegrará el stock reservado.`)) {
+      setIsSubmitting(true);
       try {
         await voidSale(saleId);
       } catch {
         return;
+      } finally {
+        setIsSubmitting(false);
       }
       if (activeTicketId === saleId) {
         resetCurrentForm();
@@ -856,6 +891,12 @@ El stock quedará en negativo.`)) return false;
             </div>
 
             <form onSubmit={handleCompleteSale} noValidate>
+              {staleTicketNotice && (
+                <div className="form-alert" role="alert" style={{ marginBottom: 12 }}>
+                  <strong>{staleTicketNotice}</strong> {STALE_TICKET_HINT}
+                </div>
+              )}
+
               {hasValidationErrors(errors) && (
                 <div className="form-alert" role="alert" style={{ marginBottom: 12 }}>
                   {errors.items || errors.tableOrCustomer || errors.paymentMethod || "Revisa el ticket antes de continuar."}

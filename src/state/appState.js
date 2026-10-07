@@ -1328,6 +1328,20 @@ export function closeTicket(state, { saleId, paymentMethod, notes }) {
   };
 }
 
+// Estado de un ticket que el POS tiene abierto en pantalla, si dejó de
+// estar pendiente en el servidor (issue #21): "completed" o "voided" si
+// otro equipo lo cobró o anuló, "missing" si ya no existe. Devuelve null
+// mientras siga pendiente o si no hay ticket abierto.
+export function getStaleTicketStatus(sales = [], ticketId = null) {
+  if (!ticketId) return null;
+
+  const ticket = sales.find((s) => s.id === ticketId);
+  if (!ticket) return "missing";
+
+  const status = normalizeSaleStatus(ticket.status);
+  return status === SALE_STATUSES.PENDING ? null : status;
+}
+
 export function voidSale(state, saleId) {
   const sale = state.sales.find(
     (s) => s.id === saleId
