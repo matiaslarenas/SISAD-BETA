@@ -31,8 +31,12 @@ import SearchBar from "../components/SearchBar";
 import FilterSelect from "../components/FilterSelect";
 import { useAppData } from "../context/AppDataContext";
 import { formatCurrency, calculateMargin, calculateProfit } from "../utils/recipeCalculator";
-import { calculateRecipeMaxPortions } from "../utils/recipeCalculator";
-import { formatDisplayDate, getTodayISODate } from "../state/appState";
+import {
+  buildTicketInventory,
+  formatDisplayDate,
+  getSellableMaxPortions,
+  getTodayISODate,
+} from "../state/appState";
 import { hasValidationErrors, validateSaleForm } from "../utils/validation";
 import { toast } from "sonner";
 
@@ -85,6 +89,7 @@ export default function POS() {
     generateSaleId,
     voidSale,
     printTicket,
+    rawState,
   } = useAppData();
 
   const [search, setSearch] = useState("");
@@ -103,6 +108,19 @@ export default function POS() {
   // Bloquea los botones mientras el servidor responde, para que un doble
   // toque no despache dos veces el mismo ticket.
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Ítems (por clave tipo-id) que la persona ya aceptó vender sobre el
+  // stock en este ticket, para no repetirle el aviso en cada "+".
+  const [overStockConfirmed, setOverStockConfirmed] = useState(() => new Set());
+
+  // Stock visto desde el ticket en pantalla: si es una mesa pendiente, lo
+  // que ella misma ya reservó cuenta como disponible (issue #15).
+  const ticketInventory = useMemo(
+    () =>
+      activeTicketId && rawState
+        ? buildTicketInventory(rawState, activeTicketId)
+        : inventory,
+    [rawState, activeTicketId, inventory]
+  );
 
   // Categories list
   const categories = useMemo(() => {
@@ -126,9 +144,9 @@ export default function POS() {
     recipes
       .filter((recipe) => recipe.type !== "base_recipe")
       .forEach((recipe) => {
-        const maxPortions = calculateRecipeMaxPortions(
-          recipe,
-          inventory,
+        const maxPortions = getSellableMaxPortions(
+          { type: "recipe", itemId: recipe.id },
+          ticketInventory,
           recipes
         );
         list.push({
@@ -155,14 +173,22 @@ export default function POS() {
           category: product.category || "Bebidas",
           salePrice: Math.round(product.costPerUnit * 1.6),
           servings: 1,
-          maxPortions: Math.max(0, product.onHand),
+          maxPortions: getSellableMaxPortions(
+            { type: "product", itemId: product.id },
+            ticketInventory
+          ),
           ingredientsCount: 1,
           raw: product,
         });
       });
 
     return list;
-  }, [recipes, inventory]);
+  }, [recipes, inventory, ticketInventory]);
+
+  const availableByKey = useMemo(
+    () => new Map(sellableItems.map((item) => [`${item.type}-${item.id}`, item.maxPortions])),
+    [sellableItems]
+  );
 
   // Filtered menu
   const filteredItems = useMemo(() => {
@@ -290,8 +316,31 @@ export default function POS() {
     ];
   }, [todaySales, completedSales, pendingTickets]);
 
+  // Opción 1 del issue #15: si la cantidad pasa el stock disponible se
+  // avisa y se deja continuar tras confirmar. El stock puede quedar
+  // negativo mientras no se valide el inventario del computador B.
+  const confirmOverStock = (item, nextQty) => {
+    const key = `${item.type}-${item.id}`;
+    const available = availableByKey.get(key) ?? 0;
+    if (nextQty <= available || overStockConfirmed.has(key)) return true;
+
+    const question =
+      available > 0
+        ? `Solo quedan ${available} de "${item.name}" según el inventario. ¿Agregar igual?`
+        : `"${item.name}" figura sin stock en el inventario. ¿Agregar igual?`;
+    if (!window.confirm(`${question}
+
+El stock quedará en negativo.`)) return false;
+
+    setOverStockConfirmed((prev) => new Set(prev).add(key));
+    return true;
+  };
+
   // Ticket actions
   const handleAddItem = (item) => {
+    const current = ticketItems.find((t) => t.id === item.id && t.type === item.type);
+    if (!confirmOverStock(item, (current?.quantity || 0) + 1)) return;
+
     setTicketItems((prev) => {
       const existing = prev.find((t) => t.id === item.id && t.type === item.type);
       if (existing) {
@@ -316,6 +365,11 @@ export default function POS() {
   };
 
   const handleUpdateQty = (id, type, delta) => {
+    const current = ticketItems.find((t) => t.id === id && t.type === type);
+    if (delta > 0 && current && !confirmOverStock(current, current.quantity + delta)) {
+      return;
+    }
+
     setTicketItems((prev) => {
       return prev
         .map((item) => {
@@ -337,6 +391,7 @@ export default function POS() {
 
   const handleClearTicket = () => {
     setTicketItems([]);
+    setOverStockConfirmed(new Set());
     setErrors({});
     setSuccessMessage("");
   };
@@ -348,12 +403,14 @@ export default function POS() {
     setPaymentMethod("Tarjeta / Débito");
     setTicketNotes("");
     setActiveTicketId(null);
+    setOverStockConfirmed(new Set());
     setErrors({});
   };
 
   // Carga una mesa/pedido pendiente en pantalla para agregar productos o cobrar
   const handleSelectPendingTicket = (ticket) => {
     setActiveTicketId(ticket.id);
+    setOverStockConfirmed(new Set());
     setTableOrCustomer(ticket.tableOrCustomer);
     setPaymentMethod(ticket.paymentMethod || "Tarjeta / Débito");
     setTicketNotes(ticket.notes || "");
@@ -723,12 +780,12 @@ export default function POS() {
                     <div
                       key={`${item.type}-${item.id}`}
                       className={`pos-item-card ${isOutOfStock ? "out-of-stock" : ""}`}
-                      onClick={() => !isOutOfStock && handleAddItem(item)}
+                      onClick={() => handleAddItem(item)}
                       role="button"
-                      tabIndex={isOutOfStock ? -1 : 0}
+                      tabIndex={0}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
-                          if (!isOutOfStock) handleAddItem(item);
+                          handleAddItem(item);
                         }
                       }}
                     >
@@ -759,7 +816,6 @@ export default function POS() {
                         <button
                           type="button"
                           className="mini-btn add-btn"
-                          disabled={isOutOfStock}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAddItem(item);
@@ -843,47 +899,56 @@ export default function POS() {
                   </div>
                 ) : (
                   <ul className="ticket-items-list">
-                    {ticketItems.map((item) => (
-                      <li key={`${item.type}-${item.id}`} className="ticket-item-row">
-                        <div className="ticket-item-info">
-                          <strong>{item.name}</strong>
-                          <span>{formatCurrency(item.salePrice)} c/u</span>
-                        </div>
+                    {ticketItems.map((item) => {
+                      const available = availableByKey.get(`${item.type}-${item.id}`) ?? 0;
+                      return (
+                        <li key={`${item.type}-${item.id}`} className="ticket-item-row">
+                          <div className="ticket-item-info">
+                            <strong>{item.name}</strong>
+                            <span>{formatCurrency(item.salePrice)} c/u</span>
+                            {item.quantity > available && (
+                              <span className="ticket-stock-warning">
+                                <AlertTriangle size={12} />
+                                {available > 0 ? `Supera el stock: quedan ${available}` : "Sin stock en inventario"}
+                              </span>
+                            )}
+                          </div>
 
-                        <div className="ticket-qty-controls">
+                          <div className="ticket-qty-controls">
+                            <button
+                              type="button"
+                              className="qty-stepper-btn"
+                              onClick={() => handleUpdateQty(item.id, item.type, -1)}
+                              aria-label={`Disminuir ${item.name}`}
+                            >
+                              <Minus size={13} />
+                            </button>
+                            <span className="qty-number">{item.quantity}</span>
+                            <button
+                              type="button"
+                              className="qty-stepper-btn"
+                              onClick={() => handleUpdateQty(item.id, item.type, 1)}
+                              aria-label={`Aumentar ${item.name}`}
+                            >
+                              <Plus size={13} />
+                            </button>
+                          </div>
+
+                          <div className="ticket-item-subtotal">
+                            <strong>{formatCurrency(item.quantity * item.salePrice)}</strong>
+                          </div>
+
                           <button
                             type="button"
-                            className="qty-stepper-btn"
-                            onClick={() => handleUpdateQty(item.id, item.type, -1)}
-                            aria-label={`Disminuir ${item.name}`}
+                            className="mini-btn remove-ticket-btn"
+                            onClick={() => handleRemoveItem(item.id, item.type)}
+                            aria-label={`Eliminar ${item.name}`}
                           >
-                            <Minus size={13} />
+                            <Trash2 size={14} />
                           </button>
-                          <span className="qty-number">{item.quantity}</span>
-                          <button
-                            type="button"
-                            className="qty-stepper-btn"
-                            onClick={() => handleUpdateQty(item.id, item.type, 1)}
-                            aria-label={`Aumentar ${item.name}`}
-                          >
-                            <Plus size={13} />
-                          </button>
-                        </div>
-
-                        <div className="ticket-item-subtotal">
-                          <strong>{formatCurrency(item.quantity * item.salePrice)}</strong>
-                        </div>
-
-                        <button
-                          type="button"
-                          className="mini-btn remove-ticket-btn"
-                          onClick={() => handleRemoveItem(item.id, item.type)}
-                          aria-label={`Eliminar ${item.name}`}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </li>
-                    ))}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
