@@ -15,7 +15,6 @@ import {
   formatDisplayDate,
   generateDailySnapshots,
   generatePurchaseSuggestions,
-  generateSaleId,
   getOperationalAlerts,
   getPurchaseStatusMeta,
   getRecentMovements,
@@ -112,6 +111,9 @@ export function AppDataProvider({ children }) {
       const { revision, data } = await postAction(action);
       revisionRef.current = revision;
       setState(data);
+      // Devuelve el estado ya aplicado: el POS lo usa para ubicar el
+      // ticket nuevo, cuyo id asigna el servidor (issue #10).
+      return data;
     } catch (error) {
       toast.error(error.message || "No se pudo guardar el cambio.");
       // Un rechazo suele venir de un estado local desfasado (por ejemplo,
@@ -212,7 +214,6 @@ export function AppDataProvider({ children }) {
       recordSale: (payload) => dispatch({ type: "sale/record", payload }),
       saveTicket: (payload) => dispatch({ type: "sale/save-ticket", payload }),
       closeTicket: (payload) => dispatch({ type: "sale/close-ticket", payload }),
-      generateSaleId: () => (state ? generateSaleId(state) : ""),
       voidSale: (saleId) => dispatch({ type: "sale/void", payload: { saleId } }),
       recordWaste: (payload) => dispatch({ type: "waste/record", payload }),
       printTicket: (sale) => postPrintTicket(sale),

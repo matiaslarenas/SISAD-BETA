@@ -7,8 +7,10 @@ import {
   buildInventorySnapshot,
   buildTicketInventory,
   closeTicket,
+  createClientRequestId,
   createPurchaseOrder,
   DomainError,
+  generateSaleId,
   getStaleTicketStatus,
   getTicketStockWarnings,
   getTodayISODate,
@@ -958,6 +960,127 @@ test(
     const next = recordDirectPurchase(state, DIRECT_PURCHASE);
 
     assert.equal(next.purchases.at(-1).id, "OC-1004");
+  }
+);
+
+// --- Id de venta asignado en el servidor, con clave de idempotencia (#10) ---
+
+function newTicket(clientRequestId, quantity = 2) {
+  return {
+    clientRequestId,
+    ...TICKET_PAYLOAD,
+    items: [{ type: "recipe", itemId: "REC-SANDWICH", quantity }],
+  };
+}
+
+test(
+  "two saveTicket without id get different ids assigned by the server",
+  () => {
+    const first = saveTicket(buildTicketState(), newTicket("clave-a"));
+    const second = saveTicket(first, newTicket("clave-b"));
+
+    assert.deepEqual(second.sales.map((s) => s.id).sort(), ["VTA-1001", "VTA-1002"]);
+    assert.equal(panOnHand(second), 16);
+  }
+);
+
+test(
+  "the next sale id follows the highest VTA number even if there are fewer sales",
+  () => {
+    const state = {
+      ...buildTicketState(),
+      sales: [
+        { id: "VTA-1007", status: "completed", items: [] },
+        { id: "VTA-1002", status: "voided", items: [] },
+      ],
+    };
+
+    assert.equal(generateSaleId(state), "VTA-1008");
+    assert.equal(saveTicket(state, newTicket("clave-a")).sales[0].id, "VTA-1008");
+  }
+);
+
+test(
+  "retrying saveTicket with the same key keeps a single ticket and a single reservation",
+  () => {
+    const first = saveTicket(buildTicketState(), newTicket("clave-a"));
+    const retried = saveTicket(first, newTicket("clave-a"));
+
+    assert.equal(retried.sales.length, 1);
+    assert.equal(retried.sales[0].clientRequestId, "clave-a");
+    assert.equal(panOnHand(retried), 18);
+  }
+);
+
+test(
+  "a retry with the same key and one more item updates the ticket and its reservation",
+  () => {
+    const first = saveTicket(buildTicketState(), newTicket("clave-a", 2));
+    const retried = saveTicket(first, newTicket("clave-a", 3));
+
+    assert.equal(retried.sales.length, 1);
+    assert.equal(retried.sales[0].id, first.sales[0].id);
+    assert.equal(retried.sales[0].items[0].quantity, 3);
+    assert.equal(panOnHand(retried), 17);
+  }
+);
+
+// Por qué el POS renueva la clave al vaciar el ticket o abrir una mesa: si
+// se perdió la respuesta de un pedido, ese pedido ya quedó guardado con su
+// clave. Un pedido distinto con la misma clave lo pisaría.
+test(
+  "a different order needs a new key, or it overwrites a ticket whose response was lost",
+  () => {
+    const lostResponse = saveTicket(buildTicketState(), newTicket("clave-a", 2));
+    const otherOrder = (key) => ({ ...newTicket(key, 1), tableOrCustomer: "Mesa 5" });
+
+    const sameKey = saveTicket(lostResponse, otherOrder("clave-a"));
+    assert.equal(sameKey.sales.length, 1);
+    assert.equal(sameKey.sales[0].tableOrCustomer, "Mesa 5");
+
+    const renewedKey = saveTicket(lostResponse, otherOrder("clave-b"));
+    assert.deepEqual(
+      renewedKey.sales.map((s) => s.tableOrCustomer).sort(),
+      ["Mesa 2", "Mesa 5"]
+    );
+    assert.equal(panOnHand(renewedKey), 17);
+  }
+);
+
+test(
+  "a retry with the key of a ticket that was already charged is rejected",
+  () => {
+    const saved = saveTicket(buildTicketState(), newTicket("clave-a"));
+    const closed = closeTicket(saved, { saleId: "VTA-1001", paymentMethod: "Efectivo", notes: "" });
+
+    assert.throws(
+      () => saveTicket(closed, newTicket("clave-a")),
+      (error) =>
+        error instanceof DomainError && /VTA-1001 ya fue cobrada/.test(error.message)
+    );
+  }
+);
+
+test(
+  "the idempotency key survives a server restart (normalizeLoadedState)",
+  () => {
+    const saved = saveTicket(buildTicketState(), newTicket("clave-a"));
+    const reloaded = normalizeLoadedState(JSON.parse(JSON.stringify(saved)));
+    const retried = saveTicket(reloaded, newTicket("clave-a"));
+
+    assert.equal(retried.sales.length, 1);
+    assert.equal(panOnHand(retried), 18);
+  }
+);
+
+test(
+  "createClientRequestId gives a different 32-character hex key each time",
+  () => {
+    const first = createClientRequestId();
+    const second = createClientRequestId();
+
+    assert.match(first, /^[0-9a-f]{32}$/);
+    assert.notEqual(first, second);
   }
 );
 

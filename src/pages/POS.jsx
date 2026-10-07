@@ -33,6 +33,7 @@ import { useAppData } from "../context/AppDataContext";
 import { formatCurrency, calculateMargin, calculateProfit } from "../utils/recipeCalculator";
 import {
   buildTicketInventory,
+  createClientRequestId,
   formatDisplayDate,
   getSellableMaxPortions,
   getStaleTicketStatus,
@@ -96,7 +97,6 @@ export default function POS() {
     sales,
     saveTicket,
     closeTicket,
-    generateSaleId,
     voidSale,
     printTicket,
     rawState,
@@ -118,6 +118,13 @@ export default function POS() {
   // Bloquea los botones mientras el servidor responde, para que un doble
   // toque no despache dos veces el mismo ticket.
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Clave de idempotencia del pedido nuevo en pantalla (issue #10): el
+  // servidor asigna el id, y esta clave hace que un reintento (por ejemplo,
+  // si se perdió la respuesta) actualice el mismo ticket en vez de crear
+  // otro. Se conserva tras un error y se renueva cuando el formulario pasa
+  // a ser otro pedido (se guardó, se vació o se abrió una mesa): si no, un
+  // pedido distinto pisaría al que quedó guardado sin respuesta.
+  const [clientRequestId, setClientRequestId] = useState(createClientRequestId);
   // Aviso de que la mesa abierta en pantalla dejó de estar pendiente
   // porque otro equipo la cobró o anuló (issue #21).
   const [staleTicketNotice, setStaleTicketNotice] = useState("");
@@ -308,6 +315,8 @@ export default function POS() {
 
     const message = `El pedido ${activeTicketId} ${STALE_TICKET_LABELS[staleStatus]}.`;
     setActiveTicketId(null);
+    // Lo que queda en pantalla pasa a ser otro pedido: estrena clave (#10).
+    setClientRequestId(createClientRequestId());
     setStaleTicketNotice(message);
     toast.warning(message, { description: STALE_TICKET_HINT });
   }, [sales, activeTicketId, isSubmitting]);
@@ -419,6 +428,7 @@ El stock quedará en negativo.`)) return false;
 
   const handleClearTicket = () => {
     setTicketItems([]);
+    setClientRequestId(createClientRequestId());
     setStaleTicketNotice("");
     setOverStockConfirmed(new Set());
     setErrors({});
@@ -432,6 +442,7 @@ El stock quedará en negativo.`)) return false;
     setPaymentMethod("Tarjeta / Débito");
     setTicketNotes("");
     setActiveTicketId(null);
+    setClientRequestId(createClientRequestId());
     setStaleTicketNotice("");
     setOverStockConfirmed(new Set());
     setErrors({});
@@ -440,6 +451,7 @@ El stock quedará en negativo.`)) return false;
   // Carga una mesa/pedido pendiente en pantalla para agregar productos o cobrar
   const handleSelectPendingTicket = (ticket) => {
     setActiveTicketId(ticket.id);
+    setClientRequestId(createClientRequestId());
     setStaleTicketNotice("");
     setOverStockConfirmed(new Set());
     setTableOrCustomer(ticket.tableOrCustomer);
@@ -485,11 +497,10 @@ El stock quedará en negativo.`)) return false;
     }
 
     // dispatch ya muestra el error del servidor con un toast y lo relanza:
-    // si falla, se conserva el formulario para reintentar.
-    const ticketId = activeTicketId || generateSaleId();
+    // si falla, se conserva el formulario (y su clave) para reintentar.
     setIsSubmitting(true);
     try {
-      await saveTicket({ id: ticketId, ...salePayload });
+      await saveTicket({ ...ticketReference(), ...salePayload });
     } catch {
       return;
     } finally {
@@ -532,13 +543,20 @@ El stock quedará en negativo.`)) return false;
     // con lo que finalmente se cobró, venga o no de una mesa pendiente.
     // closeTicket debe esperar a saveTicket: si llega antes al servidor no
     // encuentra el ticket pendiente y no cierra nada.
-    const ticketId = activeTicketId || generateSaleId();
     setIsSubmitting(true);
     try {
-      await saveTicket({ id: ticketId, ...salePayload });
+      const savedState = await saveTicket({ ...ticketReference(), ...salePayload });
+      const ticketId =
+        activeTicketId ||
+        savedState.sales.find((s) => s.clientRequestId === clientRequestId)?.id;
+      if (!ticketId) {
+        toast.error("No se pudo ubicar el pedido guardado. Revisa las mesas activas antes de cobrar.");
+        return;
+      }
       // Si el cierre falla, el reintento debe actualizar este mismo ticket
-      // pendiente en vez de crear otro con un id nuevo.
+      // pendiente en vez de crear otro. La clave ya quedó usada.
       setActiveTicketId(ticketId);
+      setClientRequestId(createClientRequestId());
       await closeTicket({ saleId: ticketId, paymentMethod, notes: ticketNotes });
     } catch {
       return;
@@ -554,11 +572,17 @@ El stock quedará en negativo.`)) return false;
     setTimeout(() => setSuccessMessage(""), 4500);
   };
 
+  // Un ticket existente se identifica por su id; uno nuevo, por la clave de
+  // idempotencia, y el servidor le asigna el id.
+  const ticketReference = () =>
+    activeTicketId ? { id: activeTicketId } : { clientRequestId };
+
   // Arma el pedido actual (aún no guardado) con la misma forma que
   // espera la impresora, para poder imprimirlo sin depender de que ya
   // se haya cerrado la venta.
   const buildCurrentSalePayload = () => ({
-    id: activeTicketId || generateSaleId(),
+    // Un pedido nuevo todavía no tiene id: lo asigna el servidor al guardar.
+    id: activeTicketId || "Nuevo",
     tableOrCustomer,
     paymentMethod,
     date: getTodayISODate(),

@@ -471,6 +471,9 @@ function normalizeSale(sale, catalog = [], recipes = []) {
     status: normalizeSaleStatus(sale.status),
     closedAt: sale.closedAt || null,
     notes: String(sale.notes || "").trim(),
+    ...(sale.clientRequestId
+      ? { clientRequestId: String(sale.clientRequestId) }
+      : {}),
   };
 }
 
@@ -1052,8 +1055,24 @@ export function recordDirectPurchase(
   });
 }
 
+// El id de venta lo asigna el servidor (issue #10), a partir del mayor
+// VTA-n existente y no de sales.length: así no se repite si hay huecos,
+// por ejemplo al restaurar un respaldo con menos ventas.
 export function generateSaleId(state) {
-  return `VTA-${String(state.sales.length + 1001)}`;
+  const maxNumber = state.sales.reduce((max, sale) => {
+    const match = /^VTA-(\d+)$/.exec(String(sale.id || ""));
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 1000);
+  return `VTA-${maxNumber + 1}`;
+}
+
+// Clave de idempotencia de un pedido nuevo del POS (issue #10): el cliente
+// la genera al empezar el pedido y la repite en cada reintento. Usa
+// crypto.getRandomValues porque crypto.randomUUID solo existe en
+// contextos seguros y la tablet entra por http://.
+export function createClientRequestId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // Calcula los movimientos de inventario (descuento de stock) que
@@ -1216,13 +1235,23 @@ export function recordSale(
 // el descuento al agregar o quitar productos de una mesa abierta).
 export function saveTicket(
   state,
-  { id, tableOrCustomer, paymentMethod, items, notes }
+  { id, clientRequestId, tableOrCustomer, paymentMethod, items, notes }
 ) {
+  // Un ticket nuevo llega sin id y con su clave de idempotencia. Si ya hay
+  // un ticket con esa clave, es un reintento (por ejemplo, se perdió la
+  // respuesta): se actualiza ese mismo ticket en vez de crear otro.
+  const requestKey = String(clientRequestId || "").trim();
+  const retriedSale =
+    !id?.trim() && requestKey
+      ? state.sales.find((s) => s.clientRequestId === requestKey)
+      : null;
+  const targetId = id?.trim() || retriedSale?.id || "";
+
   // Un id que ya pertenece a una venta cobrada o anulada no se puede
   // reutilizar: se borrarían sus movimientos de stock y quedaría el id
   // duplicado. Se rechaza para que el servidor responda con error.
-  const usedId = id?.trim()
-    ? state.sales.find((s) => s.id === id.trim())
+  const usedId = targetId
+    ? state.sales.find((s) => s.id === targetId)
     : null;
   if (usedId && usedId.status !== SALE_STATUSES.PENDING) {
     const statusLabel =
@@ -1232,13 +1261,9 @@ export function saveTicket(
     );
   }
 
-  const existing = id
-    ? state.sales.find(
-      (s) => s.id === id && s.status === SALE_STATUSES.PENDING
-    )
-    : null;
+  const existing = usedId?.status === SALE_STATUSES.PENDING ? usedId : null;
 
-  const saleId = existing?.id || id?.trim() || generateSaleId(state);
+  const saleId = existing?.id || targetId || generateSaleId(state);
   const saleDate = existing?.date || getTodayISODate();
   const saleTime =
     existing?.time ||
@@ -1266,6 +1291,7 @@ export function saveTicket(
       items: normalizedItems,
       notes,
       status: SALE_STATUSES.PENDING,
+      clientRequestId: existing?.clientRequestId || requestKey,
     },
     snapshot,
     state.recipes
