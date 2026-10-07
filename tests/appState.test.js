@@ -5,11 +5,14 @@ import { recipesData } from "../src/data/recipesData.js";
 import {
   addOrUpdateProduct,
   buildInventorySnapshot,
+  buildTicketInventory,
   closeTicket,
   createClientRequestId,
   createPurchaseOrder,
   DomainError,
   generateSaleId,
+  getStaleTicketStatus,
+  getTicketStockWarnings,
   getTodayISODate,
   normalizeLoadedState,
   receivePurchaseOrder,
@@ -713,6 +716,30 @@ test(
   }
 );
 
+// Issue #21: si otro equipo cobra o anula la mesa que el POS tiene abierta,
+// el POS debe soltarla en vez de seguir "editando" una venta cerrada.
+test(
+  "getStaleTicketStatus is null while the open ticket is still pending",
+  () => {
+    const saved = saveTicket(buildTicketState(), { id: "VTA-1001", ...TICKET_PAYLOAD });
+
+    assert.equal(getStaleTicketStatus(saved.sales, "VTA-1001"), null);
+    assert.equal(getStaleTicketStatus(saved.sales, null), null);
+  }
+);
+
+test(
+  "getStaleTicketStatus reports an open ticket that was charged, voided or removed elsewhere",
+  () => {
+    const saved = saveTicket(buildTicketState(), { id: "VTA-1001", ...TICKET_PAYLOAD });
+    const closed = closeTicket(saved, { saleId: "VTA-1001", paymentMethod: "Efectivo", notes: "" });
+
+    assert.equal(getStaleTicketStatus(closed.sales, "VTA-1001"), "completed");
+    assert.equal(getStaleTicketStatus(voidSale(saved, "VTA-1001").sales, "VTA-1001"), "voided");
+    assert.equal(getStaleTicketStatus([], "VTA-1001"), "missing");
+  }
+);
+
 // Regresión: saveTicket solo reconocía tickets PENDING, pero siempre
 // borraba los movimientos de venta con ese id. Con el id de una venta ya
 // cobrada (o anulada) duplicaba el id y rehacía su descuento de stock.
@@ -762,6 +789,108 @@ test(
 
     assert.equal(updated.sales.length, 1);
     assert.equal(panOnHand(updated), 17);
+  }
+);
+
+// --- Aviso al vender sobre el stock (issue #15, opción 1) ---
+
+function sandwichLine(quantity) {
+  return { type: "recipe", itemId: "REC-SANDWICH", name: "Sándwich", quantity };
+}
+
+test(
+  "getTicketStockWarnings warns only when a line asks for more portions than available",
+  () => {
+    const state = buildTicketState();
+
+    assert.deepEqual(getTicketStockWarnings(state, [sandwichLine(20)]), []);
+    assert.deepEqual(getTicketStockWarnings(state, [sandwichLine(21)]), [
+      { type: "recipe", itemId: "REC-SANDWICH", name: "Sándwich", quantity: 21, available: 20 },
+    ]);
+  }
+);
+
+test(
+  "editing a pending ticket counts its own reserved portions as available",
+  () => {
+    const saved = saveTicket(buildTicketState(), { id: "VTA-1001", ...TICKET_PAYLOAD });
+    assert.equal(panOnHand(saved), 18);
+
+    // Un ticket nuevo solo tiene las 18 que quedan.
+    assert.equal(getTicketStockWarnings(saved, [sandwichLine(19)])[0].available, 18);
+
+    // El ticket que reservó 2 puede llegar a 18 + 2 sin aviso.
+    assert.deepEqual(getTicketStockWarnings(saved, [sandwichLine(20)], "VTA-1001"), []);
+    assert.equal(
+      getTicketStockWarnings(saved, [sandwichLine(21)], "VTA-1001")[0].available,
+      20
+    );
+  }
+);
+
+test(
+  "buildTicketInventory does not give back the stock of a ticket that was already charged",
+  () => {
+    const saved = saveTicket(buildTicketState(), { id: "VTA-1001", ...TICKET_PAYLOAD });
+    const closed = closeTicket(saved, { saleId: "VTA-1001", paymentMethod: "Efectivo", notes: "" });
+
+    const pan = buildTicketInventory(closed, "VTA-1001").find((p) => p.id === "INV-PAN");
+    assert.equal(pan.onHand, 18);
+  }
+);
+
+test(
+  "a resale product is limited by its stock, and negative stock counts as zero",
+  () => {
+    const state = normalizeLoadedState({
+      ...buildTicketState(),
+      inventoryCatalog: [
+        ...buildTicketState().inventoryCatalog,
+        {
+          id: "INV-COLA",
+          item: "Bebida lata",
+          type: "resale",
+          category: "Bebidas",
+          purchaseUnit: "un",
+          costPerUnit: 600,
+          minStock: 6,
+        },
+      ],
+      inventoryMovements: [
+        ...buildTicketState().inventoryMovements,
+        {
+          id: "MOV-COLA-1",
+          productId: "INV-COLA",
+          type: "adjustment",
+          quantity: -2,
+          unitCost: 600,
+          movementDate: "2026-09-01",
+          reference: "Ajuste",
+          notes: "",
+        },
+      ],
+    });
+
+    const [warning] = getTicketStockWarnings(state, [
+      { type: "product", itemId: "INV-COLA", name: "Bebida lata", quantity: 1 },
+    ]);
+    assert.equal(warning.available, 0);
+  }
+);
+
+// La opción 1 avisa en el POS pero no bloquea: el servidor sigue
+// aceptando el ticket y el stock queda negativo, a la vista.
+test(
+  "saveTicket still accepts a ticket over the stock and leaves it negative",
+  () => {
+    const saved = saveTicket(buildTicketState(), {
+      id: "VTA-1001",
+      ...TICKET_PAYLOAD,
+      items: [sandwichLine(23)],
+    });
+
+    assert.equal(saved.sales[0].status, "pending");
+    assert.equal(panOnHand(saved), -3);
   }
 );
 

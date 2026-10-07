@@ -1354,6 +1354,20 @@ export function closeTicket(state, { saleId, paymentMethod, notes }) {
   };
 }
 
+// Estado de un ticket que el POS tiene abierto en pantalla, si dejó de
+// estar pendiente en el servidor (issue #21): "completed" o "voided" si
+// otro equipo lo cobró o anuló, "missing" si ya no existe. Devuelve null
+// mientras siga pendiente o si no hay ticket abierto.
+export function getStaleTicketStatus(sales = [], ticketId = null) {
+  if (!ticketId) return null;
+
+  const ticket = sales.find((s) => s.id === ticketId);
+  if (!ticket) return "missing";
+
+  const status = normalizeSaleStatus(ticket.status);
+  return status === SALE_STATUSES.PENDING ? null : status;
+}
+
 export function voidSale(state, saleId) {
   const sale = state.sales.find(
     (s) => s.id === saleId
@@ -1398,6 +1412,61 @@ export function voidSale(state, saleId) {
       ...reversalMovements,
     ],
   };
+}
+
+// Inventario visto desde un ticket del POS (issue #15). Si el ticket ya
+// está guardado como pendiente, su stock está reservado (descontado): se
+// cuenta como disponible para ese mismo ticket, así al editarlo no se
+// avisa por las porciones que ya tenía.
+export function buildTicketInventory(state, ticketId = null) {
+  const pendingTicket = ticketId
+    ? state.sales.find(
+      (s) => s.id === ticketId && s.status === SALE_STATUSES.PENDING
+    )
+    : null;
+
+  const movements = pendingTicket
+    ? state.inventoryMovements.filter(
+      (m) => !(m.reference === pendingTicket.id && m.type === MOVEMENT_TYPES.SALE)
+    )
+    : state.inventoryMovements;
+
+  return buildInventorySnapshot(state.inventoryCatalog, movements);
+}
+
+// Porciones de un ítem vendible que alcanzan con el inventario dado:
+// el ingrediente "cuello de botella" en una receta, o el stock en un
+// producto de reventa.
+export function getSellableMaxPortions(
+  { type, itemId },
+  inventory,
+  recipes = []
+) {
+  if (type === "recipe") {
+    const recipe = recipes.find((r) => r.id === itemId);
+    return recipe ? calculateRecipeMaxPortions(recipe, inventory, recipes) : 0;
+  }
+
+  const product = inventory.find((p) => p.id === itemId);
+  return product ? Math.max(0, product.onHand) : 0;
+}
+
+// Ítems de un ticket que piden más porciones que las disponibles (opción 1
+// del issue #15): el POS avisa y deja continuar, no bloquea la venta,
+// mientras el stock no sea confiable. Cada plato se revisa por separado:
+// dos platos que comparten un ingrediente pueden no alcanzar juntos.
+export function getTicketStockWarnings(state, items = [], ticketId = null) {
+  const inventory = buildTicketInventory(state, ticketId);
+
+  return items
+    .map((item) => ({
+      type: item.type,
+      itemId: item.itemId,
+      name: item.name,
+      quantity: toNumber(item.quantity, 0),
+      available: getSellableMaxPortions(item, inventory, state.recipes),
+    }))
+    .filter((item) => item.quantity > item.available);
 }
 
 export const WASTE_REASONS = [

@@ -116,6 +116,16 @@ export function AppDataProvider({ children }) {
       return data;
     } catch (error) {
       toast.error(error.message || "No se pudo guardar el cambio.");
+      // Un rechazo suele venir de un estado local desfasado (por ejemplo,
+      // otro equipo ya cobró la mesa): se refresca sin esperar al polling.
+      fetchState()
+        .then(({ revision, data }) => {
+          if (revision !== revisionRef.current) {
+            revisionRef.current = revision;
+            setState(data);
+          }
+        })
+        .catch(() => {});
       throw error;
     }
   }, []);
