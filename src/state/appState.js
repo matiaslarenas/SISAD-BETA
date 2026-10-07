@@ -1388,6 +1388,61 @@ export function voidSale(state, saleId) {
   };
 }
 
+// Inventario visto desde un ticket del POS (issue #15). Si el ticket ya
+// está guardado como pendiente, su stock está reservado (descontado): se
+// cuenta como disponible para ese mismo ticket, así al editarlo no se
+// avisa por las porciones que ya tenía.
+export function buildTicketInventory(state, ticketId = null) {
+  const pendingTicket = ticketId
+    ? state.sales.find(
+      (s) => s.id === ticketId && s.status === SALE_STATUSES.PENDING
+    )
+    : null;
+
+  const movements = pendingTicket
+    ? state.inventoryMovements.filter(
+      (m) => !(m.reference === pendingTicket.id && m.type === MOVEMENT_TYPES.SALE)
+    )
+    : state.inventoryMovements;
+
+  return buildInventorySnapshot(state.inventoryCatalog, movements);
+}
+
+// Porciones de un ítem vendible que alcanzan con el inventario dado:
+// el ingrediente "cuello de botella" en una receta, o el stock en un
+// producto de reventa.
+export function getSellableMaxPortions(
+  { type, itemId },
+  inventory,
+  recipes = []
+) {
+  if (type === "recipe") {
+    const recipe = recipes.find((r) => r.id === itemId);
+    return recipe ? calculateRecipeMaxPortions(recipe, inventory, recipes) : 0;
+  }
+
+  const product = inventory.find((p) => p.id === itemId);
+  return product ? Math.max(0, product.onHand) : 0;
+}
+
+// Ítems de un ticket que piden más porciones que las disponibles (opción 1
+// del issue #15): el POS avisa y deja continuar, no bloquea la venta,
+// mientras el stock no sea confiable. Cada plato se revisa por separado:
+// dos platos que comparten un ingrediente pueden no alcanzar juntos.
+export function getTicketStockWarnings(state, items = [], ticketId = null) {
+  const inventory = buildTicketInventory(state, ticketId);
+
+  return items
+    .map((item) => ({
+      type: item.type,
+      itemId: item.itemId,
+      name: item.name,
+      quantity: toNumber(item.quantity, 0),
+      available: getSellableMaxPortions(item, inventory, state.recipes),
+    }))
+    .filter((item) => item.quantity > item.available);
+}
+
 export const WASTE_REASONS = [
   "Producto vencido",
   "Daño físico / golpe",
