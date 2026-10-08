@@ -41,7 +41,10 @@ envíos simulados, limpieza de temporales y cola; no prueban una impresora
 física. La impresión en el computador B con la Xprinter XP-P101 sigue
 pendiente de validación: comprobar conexión y dispositivo USB, permisos
 del usuario, elegir `device` o `cups`, imprimir comanda y cuenta reales,
-y revisar tildes y `ñ`. No afirmar que la impresora funciona en el B
+y revisar tildes y `ñ`. El texto de los tickets se manda solo en ASCII
+(`toTicketAscii` quita tildes y `ñ`, y deja `?` en lo demás) porque la
+XP-P101 arranca en modo chino y un byte >= 0x80 sale como ideograma
+(visto el 2026-10-08: "Débito" salió "D閲ito"). No afirmar que la impresora funciona en el B
 hasta completar esas comprobaciones.
 
 ## Regla no negociable: sin dependencias externas
