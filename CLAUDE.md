@@ -45,33 +45,76 @@ tablet (POS), el celular y otros equipos son clientes por WiFi.
 
 ## Flujo de trabajo (para todas las sesiones de IA)
 
-Trabajan en este repo Claude (Coordinador de proyecto), Claude Code en VS Code
-y GitHub Copilot. Matias decide, prueba lo que tiene interfaz y es el único
-que hace merge.
+Participan Matias, el Coordinador de proyecto (Claude en claude.ai), Claude
+Code (VS Code, en el equipo de Matias) y GitHub Copilot. Matias decide y es el
+único que hace merge. Gemini no participa.
 
-- **Tablero:** el issue #17 "Estado SISAD" guarda el estado (PRs, orden de
-  merge, qué falta probar, decisiones). Leerlo al empezar; al cerrar una tarea,
-  actualizar su cuerpo y dejar un comentario corto. Las reglas viven aquí, no
-  en el tablero.
-- **GitHub manda:** si un resumen no coincide con GitHub, vale GitHub.
+- **Paquete de aprobación:** cada tarea define objetivo, alcance y áreas
+  previstas, criterios de aceptación, riesgo, validación, documentación que
+  puede verse afectada, responsable, revisor previsto (riesgo medio y alto) y
+  línea de dependencia. Dentro de esos límites, el responsable decide la
+  implementación reversible.
+- **Registro:** el issue de la tarea guarda el responsable aprobado, el revisor
+  previsto, el alcance aprobado, la línea de dependencia (o "independiente") y
+  el PR bloqueante si existe. El PR solo enlaza al issue.
+- **Puertas de Matias:** (1) aprobación del paquete; (2) expansión de alcance
+  o cambio de conducta no previsto; (3) datos reales, borrado, permisos o
+  publicación; (4) merge. Si estaban en el paquete, no piden otra pausa: rama,
+  commits, push, PR en borrador, pedido de revisión y actualización breve del
+  #17.
+- **Tres capas de información:** este archivo guarda las reglas durables; el
+  issue #17 "Estado SISAD" es un índice breve (decisiones vigentes, bloqueos,
+  dependencias y próximos hitos); issues, PR y CI guardan el detalle
+  verificable. Se enlaza, no se resume de nuevo. **GitHub manda:** si un
+  resumen no coincide con GitHub, vale GitHub.
+- **Responsable único:** Matias lo elige al aprobar el paquete, por capacidad
+  y riesgo. El Coordinador lo propone con una línea de justificación. El
+  briefing lleva solo el issue o PR, los criterios, las decisiones vigentes y
+  las superficies afectadas.
+- **Revisor previsto** (riesgo medio y alto): lo designa Matias junto al
+  responsable; el Coordinador puede proponerlo. Es una sesión distinta del
+  responsable y recibe solo el diff, los criterios y la evidencia.
+- **Roles:**
+  - Coordinador de proyecto: crea y refina tareas, arma el paquete, propone
+    responsable y revisor, mantiene breve el #17 y la memoria del proyecto;
+    implementa cuando Matias lo elige. No prueba en el servidor ni en la copia
+    local.
+  - Claude Code: implementa cuando Matias lo elige, sobre todo lo que se
+    prueba en el navegador, en la copia local o en el servidor. Entrega PR con
+    evidencia de UI cuando corresponde. No revisa su propio PR.
+  - Copilot: audita y revisa (ver `.github/copilot-instructions.md`). No
+    implementa en ramas de otra sesión, no aprueba ni hace merge.
+- **Riesgo y revisión** (el revisor puede subir el riesgo, justificándolo):
+
+  | Riesgo | Qué entra | Revisión |
+  |---|---|---|
+  | Bajo | Documentación o cosmética aislada | Checklist + CI |
+  | Medio | UI funcional, lógica cubierta por tests, API o servidor sin datos reales | Revisión cruzada focalizada |
+  | Alto | Ventas, inventario, persistencia, impresión, seguridad, scripts de datos, despliegue o varios clientes | Revisión cruzada + prueba manual definida |
+
+- **Validación proporcional:** si toca código, `npm test` una vez como línea
+  base antes de la primera modificación, pruebas focalizadas durante el
+  trabajo y `npm test` completo antes del PR. Si toca UI, además
+  `npm run build` y evidencia: por cada pantalla o flujo modificado, una
+  captura o clip y los pasos con el resultado esperado (no reemplaza la
+  prueba final de Matias). Documentación pura: sin validación local de
+  código. El CI (`.github/workflows/ci.yml`: `npm test` y `npm run build`) es
+  obligatorio en todo PR.
+- **Línea de dependencia:** cadena donde un PR requiere el merge de otro, o
+  donde ambos cambian el mismo comportamiento, contrato, archivo de alta
+  colisión, datos o infraestructura compartidos. Hay un solo PR de código
+  abierto por cadena. Compartir un archivo no bloquea si los cambios son
+  claramente independientes y el riesgo de conflicto es bajo; las dudas las
+  resuelve Matias. Investigaciones o documentación independientes pueden
+  coexistir.
 - **Una tarea, una rama, un PR.** Nunca dos sesiones en la misma rama.
-- **`npm test` antes y después** de cada cambio. El CI
-  (`.github/workflows/ci.yml`) corre `npm test` y `npm run build` en cada PR.
 - **Autor de los commits:** `matiaslarenas
   <33456759+matiaslarenas@users.noreply.github.com>`. No reescribir historial.
 - **Tests nuevos en `tests/appState.test.js`:** insertarlos en medio del
   archivo, no al final, para evitar conflictos entre PRs.
-- **Aprobación por plan:** antes de cambiar archivos se presenta un plan y se
-  espera el sí de Matias. Una vez aprobado, los pasos reversibles dentro del
-  plan (rama, commits, PR en borrador, push a esa rama) no piden otra
-  aprobación. Lo irreversible (merge, borrar ramas o datos, correr `scripts/`
-  sobre datos reales) y lo que salga del plan vuelven a esperar su sí.
-- **Reparto según el tipo de tarea:**
-  - Sin interfaz (skills, docs, scripts, tests, lógica cubierta por
-    `npm test`): implementa el Coordinador; revisa Claude Code o Copilot.
-  - Con interfaz o que hay que probar en el navegador o en el servidor del
-    local (POS, UI, impresión): implementa Claude Code; revisa el Coordinador.
-  - Copilot: auditorías y revisión de PRs, pedida en GitHub.
+- **Mejora ligera:** al cerrar una tarea se anota solo relectura duplicada,
+  espera evitable, cambio de alcance o revisión insuficiente. Tras 5 a 10
+  tareas se ajusta el flujo.
 - **Cierre con destinatario:** toda respuesta a Matias termina con
   `➡ Entrega a: <quién> — <qué pasarle>` (Matias, Coordinador de proyecto,
   Claude Code o Copilot), pasando un número de PR o issue, no un resumen.

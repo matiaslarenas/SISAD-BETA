@@ -287,8 +287,9 @@ function createTestState() {
 
 ### 6.1 Verificaciones Pre-Commit
 
-- `npm test` — todos los tests deben pasar.
-- `npm run build` — el build de producción debe ser exitoso.
+- Validación según el riesgo de la tarea (ver `CLAUDE.md`, Flujo de trabajo):
+  si toca código, `npm test` debe pasar; si toca UI, además `npm run build`.
+  La documentación pura queda cubierta por el CI.
 
 ### 6.2 Verificaciones Pre-Merge
 

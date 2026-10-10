@@ -336,8 +336,7 @@ node --test --reporter=spec tests/appState.test.js
 
 ### 9.1 Checklist
 
-- [ ] Tests pasan (`npm test`)
-- [ ] Build exitoso (`npm run build`)
+- [ ] Validación según el riesgo (ver `CLAUDE.md`, Flujo de trabajo); el CI corre `npm test` y `npm run build` en todo PR
 - [ ] CHANGELOG.md actualizado
 - [ ] Documentación actualizada
 - [ ] Código formateado consistentemente
