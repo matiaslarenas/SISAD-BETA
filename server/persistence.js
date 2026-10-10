@@ -1,6 +1,6 @@
 /**
  * Persistencia del estado en el servidor: reemplaza a localStorage
- * (src/utils/storage.js) usando el sistema de archivos del desktop.
+ * (src/utils/storage.js) usando el sistema de archivos del servidor.
  *
  * Reutiliza createDefaultAppState/normalizeLoadedState de appState.js —
  * el mismo formato de estado y las mismas migraciones que ya existían

@@ -1,8 +1,8 @@
 /**
  * Servidor local de El Mesón de Los Laureles.
  *
- * Corre en el computador de escritorio. La tablet y los celulares se
- * conectan a este servidor por la red WiFi local — no requiere internet.
+ * Corre en el servidor del local (un equipo dedicado). La tablet y los
+ * celulares se conectan a él por la red WiFi local — no requiere internet.
  *
  * Sin dependencias externas (solo módulos nativos de Node): sirve el
  * build de producción (`dist/`) y expone una API JSON simple que aplica
