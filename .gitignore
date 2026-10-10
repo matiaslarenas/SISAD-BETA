@@ -3,6 +3,11 @@ dist
 .dyad/
 
 # Estado en vivo del servidor local (server/index.js). Cada instalación
-# real (el computador de escritorio del restaurante) genera el suyo — no
-# se versiona.
+# real (el servidor del restaurante) genera el suyo — no se versiona.
 server/data/
+
+# Archivos locales de herramientas de desarrollo o de IA.
+repomix-output.xml
+.impeccable/
+.vscode/gemini-mcp/
+*.code-workspace

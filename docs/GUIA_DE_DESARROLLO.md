@@ -28,6 +28,11 @@ npm run dev          # Terminal 1 — Vite (puerto 3000, recarga en caliente)
 npm run server:dev   # Terminal 2 — servidor Node (puerto 3001)
 ```
 
+`server:dev` usa la sintaxis `PORT=3001 node ...`, que funciona en Linux,
+macOS y Git Bash, pero no en `cmd` ni en PowerShell de Windows. Ahí, usar
+`set PORT=3001 && node server/index.js` (cmd) o
+`$env:PORT=3001; node server/index.js` (PowerShell).
+
 `vite.config.js` tiene un proxy de `/api` hacia el puerto 3001, así el
 código de `AppDataContext.jsx` no necesita saber si está en desarrollo o
 producción — siempre usa rutas relativas.
@@ -40,7 +45,7 @@ producción — siempre usa rutas relativas.
 | `npm run server:dev` | Inicia el servidor Node en el puerto 3001 (desarrollo) |
 | `npm run build` | Genera el build de producción |
 | `npm run server` | Sirve el build ya generado + la API (un solo puerto) |
-| `npm start` | `build` + `server` en un solo comando — uso real en el desktop |
+| `npm start` | `build` + `server` en un solo comando — uso real en el servidor del local |
 | `npm run preview` | Sirve el build de producción localmente (solo frontend, sin API) |
 | `npm test` | Ejecuta la suite de pruebas (node --test) |
 | `npm test -- --watch` | Ejecuta pruebas en modo observador |
@@ -53,16 +58,17 @@ producción — siempre usa rutas relativas.
 server/
 ├── index.js        # Servidor HTTP nativo: sirve dist/ + API
 ├── persistence.js  # Persistencia en disco (server/data/app-state.json)
+├── printer.js      # Tickets ESC/POS para la impresora térmica
 └── data/           # Estado en vivo (no versionado)
+scripts/            # Utilidades de un solo uso sobre app-state.json (ver skill meson-data-reset)
 src/
 ├── components/     # Componentes reutilizables (presentación)
 ├── context/        # AppDataContext.jsx (único Context, habla con el servidor)
 ├── data/           # Datos semilla
 ├── pages/          # Pantallas por sección
 ├── state/          # appState.js (lógica de dominio pura) + rootReducer.js
-
 ├── types/          # Interfaces TypeScript
-├── utils/          # Lógica pura (costeo, validación, storage)
+├── utils/          # Lógica pura (costeo, validación, formato; storage.js es legado)
 ├── App.jsx         # Layout raíz + rutas
 └── main.jsx        # Bootstrap de React
 ```
@@ -153,13 +159,14 @@ completo en `docs/ARCHITECTURE.md` §3). Sigue exponiendo lo mismo al
   - `saveProduct`, `removeProduct`
   - `addSupplier`, `updateSupplier`, `removeSupplier`
   - `addRecipe`, `updateRecipe`, `removeRecipe`
-  - `createPurchase`, `setPurchaseInTransit`, `receivePurchase`
-  - `recordSale`, `saveTicket`, `closeTicket`, `generateSaleId`, `voidSale`
+  - `createPurchase`, `setPurchaseInTransit`, `receivePurchase`,
+    `recordDirectPurchase`
+  - `recordSale`, `saveTicket`, `closeTicket`, `voidSale`
   - `recordWaste`
   - `restoreBackupState`
   - `printTicket` — **no es un `dispatch`**: llama a
     `POST /api/print-ticket` directo (imprime en la impresora térmica
-    del desktop, ver `server/printer.js`); no muta ni persiste estado.
+    del servidor, ver `server/printer.js`); no muta ni persiste estado.
 
   `Recipes.jsx`/`RecipesTable.jsx` ya tienen UI para editar y eliminar
   una receta (mismo patrón que `updateSupplier`/`removeSupplier`). Ver
@@ -175,8 +182,9 @@ Núcleo de dominio. Todas las funciones son puras:
 - **Reducers**: `addOrUpdateProduct`, `deleteProduct`,
   `addSupplier`/`updateSupplier`/`deleteSupplier`,
   `addRecipe`/`updateRecipe`/`deleteRecipe`, `createPurchaseOrder`,
-  `markPurchaseInTransit`, `receivePurchaseOrder`, `recordSale`,
-  `saveTicket`, `closeTicket`, `voidSale`, `recordWaste`. Lista completa
+  `markPurchaseInTransit`, `receivePurchaseOrder`, `recordDirectPurchase`,
+  `recordSale`, `saveTicket`, `closeTicket`, `voidSale`, `recordWaste`.
+  `generateSaleId` (id `VTA-n` asignado en el servidor). Lista completa
   de `action.type` ↔ función en `docs/ARCHITECTURE.md` §3.
 - **Alertas**: `getOperationalAlerts(state, referenceDate)`
 - **Sugerencias**: `generatePurchaseSuggestions(state)`
@@ -185,7 +193,9 @@ Núcleo de dominio. Todas las funciones son puras:
 ### 4.3 Persistencia
 
 - `server/persistence.js` maneja la persistencia en disco del servidor
-  (`server/data/app-state.json`), con escritura atómica.
+  (`server/data/app-state.json`), con escritura atómica. Si el archivo
+  existe pero no se puede leer, `loadState()` lanza `StateFileError` y el
+  servidor no arranca (ver `docs/ARCHITECTURE.md` §3).
 - Reutiliza `normalizeLoadedState`/`createDefaultAppState` de
   `appState.js` — mismas migraciones automáticas que la versión anterior
   100% client-side.
@@ -204,7 +214,10 @@ tests/
 ├── waste.test.js          # Registro de mermas
 ├── alerts.test.js         # Motor de alertas
 ├── invariants.test.js     # Invariantes matemáticas
-└── printer.test.js        # Formato ESC/POS de tickets (server/printer.js)
+├── printer.test.js        # Formato ESC/POS de tickets (server/printer.js)
+├── persistence.test.js    # Persistencia del servidor (server/persistence.js)
+├── resetQuantities.test.js # Script de reset (scripts/)
+└── actualizarCarta.test.js # Script de carga de la carta (scripts/)
 ```
 
 ### 5.2 Cómo Escribir Tests
@@ -323,8 +336,7 @@ node --test --reporter=spec tests/appState.test.js
 
 ### 9.1 Checklist
 
-- [ ] Tests pasan (`npm test`)
-- [ ] Build exitoso (`npm run build`)
+- [ ] Validación según el riesgo (ver `CLAUDE.md`, Flujo de trabajo); el CI corre `npm test` y `npm run build` en todo PR
 - [ ] CHANGELOG.md actualizado
 - [ ] Documentación actualizada
 - [ ] Código formateado consistentemente

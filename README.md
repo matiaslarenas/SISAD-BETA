@@ -70,8 +70,8 @@ Toda receta debe reflejar productos existentes en la carta.
 
 ## Flujo Operacional Implementado
 
-- El estado cliente se centraliza en un único store React con persistencia unificada.
-- El stock visible se calcula desde movimientos de inventario, no desde edición directa de localStorage.
+- Un servidor local (`server/`, Node sin dependencias externas) es la única fuente de verdad y guarda todo en `server/data/app-state.json`. La tablet, el celular y los PC de la red WiFi consultan y modifican ese mismo estado.
+- El stock visible se calcula desde movimientos de inventario, nunca por edición directa.
 - La recepción de compras genera movimientos y actualiza stock/costo vigente por producto.
 - El Punto de Venta (POS) descuenta automáticamente los ingredientes de cada receta en inventario mediante movimientos de tipo `sale`.
 - Cálculo en tiempo real de porciones máximas disponibles según ingredientes cuello de botella en bodega.
@@ -108,3 +108,25 @@ POS
 Venta
     ↓
 Reportes
+
+---
+
+# Cómo ejecutar
+
+Requisito: Node.js 20 o superior.
+
+```bash
+npm install
+npm test          # tests (node --test)
+npm start         # build + servidor en http://localhost:3000
+```
+
+Para desarrollo, en dos terminales: `npm run dev` (Vite, puerto 3000) y
+`npm run server:dev` (API, puerto 3001).
+
+Más detalle:
+
+- `CLAUDE.md`: resumen para herramientas de IA y reglas no negociables.
+- `docs/GUIA_DE_DEPLOYMENT.md`: instalación en el servidor del local, respaldos y recuperación.
+- `docs/ARCHITECTURE.md`: estructura del código y API.
+- `docs/GUIA_DE_USUARIO.md`: uso diario para el personal.

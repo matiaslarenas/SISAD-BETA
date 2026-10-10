@@ -1,8 +1,8 @@
 /**
  * Servidor local de El Mesón de Los Laureles.
  *
- * Corre en el computador de escritorio. La tablet y los celulares se
- * conectan a este servidor por la red WiFi local — no requiere internet.
+ * Corre en el servidor del local (un equipo dedicado). La tablet y los
+ * celulares se conectan a él por la red WiFi local — no requiere internet.
  *
  * Sin dependencias externas (solo módulos nativos de Node): sirve el
  * build de producción (`dist/`) y expone una API JSON simple que aplica
@@ -51,7 +51,15 @@ const MIME_TYPES = {
 
 // --- Estado en memoria + persistencia en disco -----------------------
 
-let state = loadState();
+let state;
+try {
+  state = loadState();
+} catch (error) {
+  // Un app-state.json ilegible detiene el arranque: partir de la semilla
+  // sobrescribiría los datos reales en la primera acción.
+  console.error(`\nNo se pudo iniciar el servidor.\n${error.message}\n`);
+  process.exit(1);
+}
 let revision = 1;
 
 function applyAction(action) {

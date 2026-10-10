@@ -44,9 +44,28 @@ Recién con eso confirmado, escribir el script.
 |---|---|---|
 | `reset-quantities-and-history.js` | Catálogo, recetas, proveedores | Movimientos (→ stock en 0), ventas, compras |
 
+Otro script que escribe sobre `app-state.json`, aunque no vacía datos:
+`actualizar-carta-pr8.js` carga la carta del PR #8 en una instalación ya
+iniciada. Sin `--aplicar` solo muestra el plan; con `--aplicar` exige el
+servidor detenido y deja antes una copia
+`app-state.antes-carta-pr8-<fecha>.json`.
+
 `reset-to-empty.js` (vaciar todo) se menciona en `CHANGELOG.md`, pero
 **no existe** en el repo. Si hace falta, se escribe nuevo con el patrón
-de abajo. La protección de estos scripts está pendiente en el issue #11.
+de abajo.
+
+`reset-quantities-and-history.js` está protegido (issue #11):
+
+- Sin `--confirm` solo muestra cuántos movimientos, ventas y compras
+  vaciaría, y no escribe nada.
+- Con `--confirm`, aborta si hay un servidor escuchando en `PORT` (o
+  3000).
+- Aborta si `server/data/app-state.json` no existe. No usa `loadState()`,
+  porque esa función crea un estado por defecto cuando falta el archivo.
+- Antes de guardar, copia el archivo a
+  `app-state.backup-<fecha-hora>.json` (en `server/data/` o en
+  `BACKUP_DIR`). Verifica que la copia sea idéntica y que el original no
+  haya cambiado. Si algo no calza, no guarda.
 
 Si se necesita una combinación distinta, escribir un script nuevo
 siguiendo el mismo patrón (ver abajo) en vez de modificar el alcance de
@@ -55,33 +74,34 @@ exactamente lo que hace.
 
 ## Patrón para escribir un script de reset nuevo
 
+Copiar la estructura de `reset-quantities-and-history.js` y cambiar
+solo `createResetPlan` (qué campos se mantienen y cuáles se vacían):
+
 ```js
-import { normalizeLoadedState } from "../src/state/appState.js";
-import { loadState, saveState } from "../server/persistence.js";
-
-const current = loadState();
-
-const resetState = normalizeLoadedState({
-  // Campos que se mantienen: pasar current.<campo> tal cual
-  // Campos que se vacían: pasar []
-});
-
-saveState(resetState);
+export function createResetPlan(current) {
+  const resetState = normalizeLoadedState({
+    // Campos que se mantienen: pasar current.<campo> tal cual
+    // Campos que se vacían: pasar []
+  });
+  return { resetState, counts: { /* cuántos registros se vacían */ } };
+}
 ```
 
-`normalizeLoadedState` valida y completa cualquier campo faltante — no
-hace falta reconstruir el objeto entero a mano.
+Conservar las protecciones de `runReset`: `--confirm`, comprobar que el
+servidor esté detenido, exigir que el archivo exista (nunca usar
+`loadState()` en un script destructivo) y hacer un respaldo verificado
+antes de `saveState`. `normalizeLoadedState` valida y completa cualquier
+campo faltante — no hace falta reconstruir el objeto entero a mano.
 
 ## Antes de entregar el script al usuario
 
-1. **Requiere que el servidor esté detenido** mientras corre (evita dos
-   procesos escribiendo el mismo archivo).
-2. **Probarlo en este entorno primero**, simulando un estado con datos
-   (no vacío) — cargar con `loadState()` sobre un `server/data/`
-   recién creado (usa el catálogo por defecto de `appState.js` si no
-   hay archivo previo), correr el script, y verificar con
-   `buildInventorySnapshot` u otra consulta que el resultado sea
-   exactamente el esperado (qué quedó, qué se vació, que el stock
-   derivado dé 0 si corresponde).
-3. **Recomendar backup antes de correr** (botón "Respaldar JSON" del Panel) —
+1. **Tests con `node:test`** sobre un directorio temporal, como en
+   `tests/resetQuantities.test.js`: sin `--confirm` no escribe, aborta si
+   falta el archivo o si el servidor responde, y el respaldo existe antes
+   de guardar. Inyectar `checkServer` y `persist` para no tocar el
+   estado real.
+2. **No correr el script en este entorno contra `server/data/`.** Se
+   corre a mano en el computador del restaurante, con el servidor
+   detenido, primero sin `--confirm`.
+3. **Recomendar además un respaldo desde el Panel** ("Respaldar JSON"),
    siempre, incluso cuando el alcance ya está confirmado.

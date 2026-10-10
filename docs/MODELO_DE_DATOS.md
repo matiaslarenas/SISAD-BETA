@@ -2,13 +2,13 @@
 
 > Referencia de las entidades, sus atributos y relaciones. El estado de la
 > aplicación se persiste como un único objeto JSON versionado en
-> `server/data/app-state.json`, en el computador de escritorio que actúa
-> como servidor local (cargado por `server/persistence.js`), y cada
+> `server/data/app-state.json`, en el equipo que actúa como servidor
+> local (cargado por `server/persistence.js`), y cada
 > dispositivo lo consulta a través de `AppDataContext` vía la API del
 > servidor. El formato del objeto y sus campos no cambiaron con la
 > migración a servidor — solo cambió dónde vive físicamente el archivo
 > (antes `localStorage` de cada navegador, ahora un solo archivo en el
-> desktop).
+> servidor).
 
 ## 1. Principio rector
 
@@ -167,6 +167,11 @@ Campos según `normalizePurchase` en `src/state/appState.js`:
 No existen `supplierId`, `expectedDate`, `receivedDate` (es
 `receiptDate`), `totalAmount` (es `amount`), `createdAt`/`updatedAt`.
 
+Una compra registrada con "Registrar compra" (`purchase/record-direct`,
+`recordDirectPurchase`) es una orden normal que se crea y se recibe en el
+mismo paso: nace con `status: "received"`, `orderedDate` y `receiptDate`
+iguales a la fecha de compra, y `receivedQuantity` igual a la cantidad.
+
 #### 2.5.1 Ítem de orden de compra
 
 ```js
@@ -191,7 +196,8 @@ son la misma entidad `Sale`, distinguidas por `status`:
 
 | Campo | Tipo | Descripción |
 |---|---|---|
-| `id` | string | Identificador único (formato `VTA-1001`, ...) |
+| `id` | string | Identificador único (formato `VTA-1001`, ...). Lo asigna el servidor (`generateSaleId`, a partir del mayor `VTA-n` existente) |
+| `clientRequestId` | string | Opcional. Clave de idempotencia que genera el POS al crear un ticket nuevo; si llega otra vez (reintento), `saveTicket` actualiza ese ticket en vez de crear otro |
 | `date` | string | Fecha de la venta (`YYYY-MM-DD`) |
 | `time` | string | Hora (`HH:MM`) |
 | `tableOrCustomer` | string | Mesa o cliente (ej. `"Mesa 4"`, default `"Mostrador"`) |

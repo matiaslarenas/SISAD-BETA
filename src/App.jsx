@@ -42,7 +42,7 @@ function AppReady({ children }) {
       <div className="app-loading-state">
         <p>
           {connectionError
-            ? "No se pudo conectar con el servidor local. Verifica que el computador de escritorio esté encendido y conectado a la misma red WiFi."
+            ? "No se pudo conectar con el servidor local. Verifica que el servidor del local esté encendido y conectado a la misma red WiFi."
             : "Conectando con el servidor local…"}
         </p>
       </div>

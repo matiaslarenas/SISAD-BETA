@@ -15,7 +15,6 @@ import {
   formatDisplayDate,
   generateDailySnapshots,
   generatePurchaseSuggestions,
-  generateSaleId,
   getOperationalAlerts,
   getPurchaseStatusMeta,
   getRecentMovements,
@@ -23,8 +22,8 @@ import {
 
 const AppDataContext = createContext(null);
 
-// Cada dispositivo (desktop, tablet, celular) consulta este mismo servidor
-// corriendo en el computador de escritorio — es la única fuente de verdad
+// Cada dispositivo (PC, tablet, celular) consulta este mismo servidor
+// local — es la única fuente de verdad
 // del inventario y las ventas. Ver server/index.js.
 const POLL_INTERVAL_MS = 2000;
 
@@ -112,8 +111,21 @@ export function AppDataProvider({ children }) {
       const { revision, data } = await postAction(action);
       revisionRef.current = revision;
       setState(data);
+      // Devuelve el estado ya aplicado: el POS lo usa para ubicar el
+      // ticket nuevo, cuyo id asigna el servidor (issue #10).
+      return data;
     } catch (error) {
       toast.error(error.message || "No se pudo guardar el cambio.");
+      // Un rechazo suele venir de un estado local desfasado (por ejemplo,
+      // otro equipo ya cobró la mesa): se refresca sin esperar al polling.
+      fetchState()
+        .then(({ revision, data }) => {
+          if (revision !== revisionRef.current) {
+            revisionRef.current = revision;
+            setState(data);
+          }
+        })
+        .catch(() => {});
       throw error;
     }
   }, []);
@@ -202,7 +214,6 @@ export function AppDataProvider({ children }) {
       recordSale: (payload) => dispatch({ type: "sale/record", payload }),
       saveTicket: (payload) => dispatch({ type: "sale/save-ticket", payload }),
       closeTicket: (payload) => dispatch({ type: "sale/close-ticket", payload }),
-      generateSaleId: () => (state ? generateSaleId(state) : ""),
       voidSale: (saleId) => dispatch({ type: "sale/void", payload: { saleId } }),
       recordWaste: (payload) => dispatch({ type: "waste/record", payload }),
       printTicket: (sale) => postPrintTicket(sale),

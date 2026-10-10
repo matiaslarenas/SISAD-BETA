@@ -10,7 +10,7 @@ Documento completo de referencia: `docs/GUIA_DE_DEPLOYMENT.md` y
 servidor↔cliente).
 
 > Si `docs/` contradice el issue #17 "Estado SISAD" (tablero común) o el
-> código, vale el tablero o el código: `docs/` no se está actualizando por ahora.
+> código, vale el tablero o el código.
 
 ## Qué es y por qué existe
 
@@ -46,8 +46,8 @@ hasta completar esas comprobaciones.
 
 ## Regla no negociable: sin dependencias externas
 
-`server/index.js` y `server/persistence.js` usan **solo módulos nativos
-de Node** (`http`, `fs`, `path`, `crypto`, `url`). Nunca agregar
+`server/` usa **solo módulos nativos de Node** (`http`, `fs`, `path`,
+`url`, y `child_process` y `os` en `printer.js`). Nunca agregar
 `express`, `ws`, ni ninguna librería de terceros al servidor sin
 consultarlo explícitamente primero — el restaurante puede no tener
 internet disponible en el servidor para hacer `npm install` de algo
@@ -83,10 +83,29 @@ acciones. Si agregas un caso nuevo:
   archivo temporal y recién después hace `renameSync` al archivo final.
   No cambiar esto a una escritura directa — es lo que evita corromper
   `app-state.json` si se corta la luz a mitad de guardado.
+- **Estado persistido ilegible**: si `server/data/app-state.json` existe
+  pero no se puede leer o normalizar, `loadState()` lanza `StateFileError`
+  y no modifica el archivo. `server/index.js` informa el error y termina
+  sin iniciar con el estado semilla; no se debe recuperar silenciosamente
+  ni renombrar el archivo. Para recuperar: detener el servidor, guardar una
+  copia del archivo dañado y reemplazar `app-state.json` por el último
+  respaldo descargado con Panel → "Respaldar JSON" (`loadState()` acepta
+  ese envoltorio tal cual), y volver a iniciar. Solo una instalación sin archivo
+  crea el estado por defecto.
 - **Confundir el estado del cliente con el del servidor**: el cliente
   (`AppDataContext.jsx`) ya no es dueño del estado — solo lo refleja.
   No reintroducir un `useReducer` local que mute el estado en el
   navegador; toda mutación real pasa por `POST /api/dispatch`.
+- **Ids de venta generados en el cliente** (issue #10): el cliente veía
+  `sales.length` con el desfase del polling y dos ventas podían recibir el
+  mismo id. Ahora el id lo asigna el servidor (`generateSaleId`, a partir
+  del mayor `VTA-n`). Un ticket nuevo del POS no envía `id`, sino una
+  `clientRequestId` (`createClientRequestId`, con
+  `crypto.getRandomValues`; no usar `crypto.randomUUID`, que no existe
+  por `http://`). `saveTicket` con una clave ya guardada actualiza ese
+  ticket (reintento) en vez de crear otro. `dispatch` devuelve el estado
+  aplicado y el POS ubica su ticket por la clave. No volver a generar ids
+  de venta en el cliente.
 
 ## Al tocar `AppDataContext.jsx`
 
@@ -98,3 +117,7 @@ acciones. Si agregas un caso nuevo:
   calculándose en el cliente con `useMemo` a partir del `state` que
   llega del servidor — no lo calcules en el servidor salvo que haya una
   razón concreta para moverlo ahí.
+
+Tests de impresión en `tests/printer.test.js`. Los tickets solo en ASCII
+(la impresora no imprime tildes ni ñ) están en el PR #26, que depende de
+este cambio.

@@ -471,6 +471,9 @@ function normalizeSale(sale, catalog = [], recipes = []) {
     status: normalizeSaleStatus(sale.status),
     closedAt: sale.closedAt || null,
     notes: String(sale.notes || "").trim(),
+    ...(sale.clientRequestId
+      ? { clientRequestId: String(sale.clientRequestId) }
+      : {}),
   };
 }
 
@@ -1052,8 +1055,24 @@ export function recordDirectPurchase(
   });
 }
 
+// El id de venta lo asigna el servidor (issue #10), a partir del mayor
+// VTA-n existente y no de sales.length: así no se repite si hay huecos,
+// por ejemplo al restaurar un respaldo con menos ventas.
 export function generateSaleId(state) {
-  return `VTA-${String(state.sales.length + 1001)}`;
+  const maxNumber = state.sales.reduce((max, sale) => {
+    const match = /^VTA-(\d+)$/.exec(String(sale.id || ""));
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 1000);
+  return `VTA-${maxNumber + 1}`;
+}
+
+// Clave de idempotencia de un pedido nuevo del POS (issue #10): el cliente
+// la genera al empezar el pedido y la repite en cada reintento. Usa
+// crypto.getRandomValues porque crypto.randomUUID solo existe en
+// contextos seguros y la tablet entra por http://.
+export function createClientRequestId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // Calcula los movimientos de inventario (descuento de stock) que
@@ -1216,13 +1235,23 @@ export function recordSale(
 // el descuento al agregar o quitar productos de una mesa abierta).
 export function saveTicket(
   state,
-  { id, tableOrCustomer, paymentMethod, items, notes }
+  { id, clientRequestId, tableOrCustomer, paymentMethod, items, notes }
 ) {
+  // Un ticket nuevo llega sin id y con su clave de idempotencia. Si ya hay
+  // un ticket con esa clave, es un reintento (por ejemplo, se perdió la
+  // respuesta): se actualiza ese mismo ticket en vez de crear otro.
+  const requestKey = String(clientRequestId || "").trim();
+  const retriedSale =
+    !id?.trim() && requestKey
+      ? state.sales.find((s) => s.clientRequestId === requestKey)
+      : null;
+  const targetId = id?.trim() || retriedSale?.id || "";
+
   // Un id que ya pertenece a una venta cobrada o anulada no se puede
   // reutilizar: se borrarían sus movimientos de stock y quedaría el id
   // duplicado. Se rechaza para que el servidor responda con error.
-  const usedId = id?.trim()
-    ? state.sales.find((s) => s.id === id.trim())
+  const usedId = targetId
+    ? state.sales.find((s) => s.id === targetId)
     : null;
   if (usedId && usedId.status !== SALE_STATUSES.PENDING) {
     const statusLabel =
@@ -1232,13 +1261,9 @@ export function saveTicket(
     );
   }
 
-  const existing = id
-    ? state.sales.find(
-      (s) => s.id === id && s.status === SALE_STATUSES.PENDING
-    )
-    : null;
+  const existing = usedId?.status === SALE_STATUSES.PENDING ? usedId : null;
 
-  const saleId = existing?.id || id?.trim() || generateSaleId(state);
+  const saleId = existing?.id || targetId || generateSaleId(state);
   const saleDate = existing?.date || getTodayISODate();
   const saleTime =
     existing?.time ||
@@ -1266,6 +1291,7 @@ export function saveTicket(
       items: normalizedItems,
       notes,
       status: SALE_STATUSES.PENDING,
+      clientRequestId: existing?.clientRequestId || requestKey,
     },
     snapshot,
     state.recipes
@@ -1328,6 +1354,20 @@ export function closeTicket(state, { saleId, paymentMethod, notes }) {
   };
 }
 
+// Estado de un ticket que el POS tiene abierto en pantalla, si dejó de
+// estar pendiente en el servidor (issue #21): "completed" o "voided" si
+// otro equipo lo cobró o anuló, "missing" si ya no existe. Devuelve null
+// mientras siga pendiente o si no hay ticket abierto.
+export function getStaleTicketStatus(sales = [], ticketId = null) {
+  if (!ticketId) return null;
+
+  const ticket = sales.find((s) => s.id === ticketId);
+  if (!ticket) return "missing";
+
+  const status = normalizeSaleStatus(ticket.status);
+  return status === SALE_STATUSES.PENDING ? null : status;
+}
+
 export function voidSale(state, saleId) {
   const sale = state.sales.find(
     (s) => s.id === saleId
@@ -1372,6 +1412,61 @@ export function voidSale(state, saleId) {
       ...reversalMovements,
     ],
   };
+}
+
+// Inventario visto desde un ticket del POS (issue #15). Si el ticket ya
+// está guardado como pendiente, su stock está reservado (descontado): se
+// cuenta como disponible para ese mismo ticket, así al editarlo no se
+// avisa por las porciones que ya tenía.
+export function buildTicketInventory(state, ticketId = null) {
+  const pendingTicket = ticketId
+    ? state.sales.find(
+      (s) => s.id === ticketId && s.status === SALE_STATUSES.PENDING
+    )
+    : null;
+
+  const movements = pendingTicket
+    ? state.inventoryMovements.filter(
+      (m) => !(m.reference === pendingTicket.id && m.type === MOVEMENT_TYPES.SALE)
+    )
+    : state.inventoryMovements;
+
+  return buildInventorySnapshot(state.inventoryCatalog, movements);
+}
+
+// Porciones de un ítem vendible que alcanzan con el inventario dado:
+// el ingrediente "cuello de botella" en una receta, o el stock en un
+// producto de reventa.
+export function getSellableMaxPortions(
+  { type, itemId },
+  inventory,
+  recipes = []
+) {
+  if (type === "recipe") {
+    const recipe = recipes.find((r) => r.id === itemId);
+    return recipe ? calculateRecipeMaxPortions(recipe, inventory, recipes) : 0;
+  }
+
+  const product = inventory.find((p) => p.id === itemId);
+  return product ? Math.max(0, product.onHand) : 0;
+}
+
+// Ítems de un ticket que piden más porciones que las disponibles (opción 1
+// del issue #15): el POS avisa y deja continuar, no bloquea la venta,
+// mientras el stock no sea confiable. Cada plato se revisa por separado:
+// dos platos que comparten un ingrediente pueden no alcanzar juntos.
+export function getTicketStockWarnings(state, items = [], ticketId = null) {
+  const inventory = buildTicketInventory(state, ticketId);
+
+  return items
+    .map((item) => ({
+      type: item.type,
+      itemId: item.itemId,
+      name: item.name,
+      quantity: toNumber(item.quantity, 0),
+      available: getSellableMaxPortions(item, inventory, state.recipes),
+    }))
+    .filter((item) => item.quantity > item.available);
 }
 
 export const WASTE_REASONS = [

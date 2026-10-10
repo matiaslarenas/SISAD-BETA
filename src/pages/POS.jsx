@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Store,
   DollarSign,
@@ -31,8 +31,14 @@ import SearchBar from "../components/SearchBar";
 import FilterSelect from "../components/FilterSelect";
 import { useAppData } from "../context/AppDataContext";
 import { formatCurrency, calculateMargin, calculateProfit } from "../utils/recipeCalculator";
-import { calculateRecipeMaxPortions } from "../utils/recipeCalculator";
-import { formatDisplayDate, getTodayISODate } from "../state/appState";
+import {
+  buildTicketInventory,
+  createClientRequestId,
+  formatDisplayDate,
+  getSellableMaxPortions,
+  getStaleTicketStatus,
+  getTodayISODate,
+} from "../state/appState";
 import { hasValidationErrors, validateSaleForm } from "../utils/validation";
 import { toast } from "sonner";
 
@@ -55,6 +61,15 @@ const MENU_CATEGORY_ORDER = [
   "Bebidas",
   "Cafetería",
 ];
+
+const STALE_TICKET_LABELS = {
+  completed: "ya fue cobrado en otro equipo",
+  voided: "fue anulado en otro equipo",
+  missing: "ya no está entre las mesas activas",
+};
+
+const STALE_TICKET_HINT =
+  "Lo que estaba en pantalla quedó como pedido nuevo, sin guardar. Si ya se cobró, vacía el ticket; si son productos nuevos, guárdalo como pedido nuevo.";
 
 function categoryRank(category) {
   const index = MENU_CATEGORY_ORDER.indexOf(category);
@@ -82,9 +97,9 @@ export default function POS() {
     sales,
     saveTicket,
     closeTicket,
-    generateSaleId,
     voidSale,
     printTicket,
+    rawState,
   } = useAppData();
 
   const [search, setSearch] = useState("");
@@ -103,6 +118,29 @@ export default function POS() {
   // Bloquea los botones mientras el servidor responde, para que un doble
   // toque no despache dos veces el mismo ticket.
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Clave de idempotencia del pedido nuevo en pantalla (issue #10): el
+  // servidor asigna el id, y esta clave hace que un reintento (por ejemplo,
+  // si se perdió la respuesta) actualice el mismo ticket en vez de crear
+  // otro. Se conserva tras un error y se renueva cuando el formulario pasa
+  // a ser otro pedido (se guardó, se vació o se abrió una mesa): si no, un
+  // pedido distinto pisaría al que quedó guardado sin respuesta.
+  const [clientRequestId, setClientRequestId] = useState(createClientRequestId);
+  // Aviso de que la mesa abierta en pantalla dejó de estar pendiente
+  // porque otro equipo la cobró o anuló (issue #21).
+  const [staleTicketNotice, setStaleTicketNotice] = useState("");
+  // Ítems (por clave tipo-id) que la persona ya aceptó vender sobre el
+  // stock en este ticket, para no repetirle el aviso en cada "+".
+  const [overStockConfirmed, setOverStockConfirmed] = useState(() => new Set());
+
+  // Stock visto desde el ticket en pantalla: si es una mesa pendiente, lo
+  // que ella misma ya reservó cuenta como disponible (issue #15).
+  const ticketInventory = useMemo(
+    () =>
+      activeTicketId && rawState
+        ? buildTicketInventory(rawState, activeTicketId)
+        : inventory,
+    [rawState, activeTicketId, inventory]
+  );
 
   // Categories list
   const categories = useMemo(() => {
@@ -126,9 +164,9 @@ export default function POS() {
     recipes
       .filter((recipe) => recipe.type !== "base_recipe")
       .forEach((recipe) => {
-        const maxPortions = calculateRecipeMaxPortions(
-          recipe,
-          inventory,
+        const maxPortions = getSellableMaxPortions(
+          { type: "recipe", itemId: recipe.id },
+          ticketInventory,
           recipes
         );
         list.push({
@@ -155,14 +193,22 @@ export default function POS() {
           category: product.category || "Bebidas",
           salePrice: Math.round(product.costPerUnit * 1.6),
           servings: 1,
-          maxPortions: Math.max(0, product.onHand),
+          maxPortions: getSellableMaxPortions(
+            { type: "product", itemId: product.id },
+            ticketInventory
+          ),
           ingredientsCount: 1,
           raw: product,
         });
       });
 
     return list;
-  }, [recipes, inventory]);
+  }, [recipes, inventory, ticketInventory]);
+
+  const availableByKey = useMemo(
+    () => new Map(sellableItems.map((item) => [`${item.type}-${item.id}`, item.maxPortions])),
+    [sellableItems]
+  );
 
   // Filtered menu
   const filteredItems = useMemo(() => {
@@ -258,6 +304,23 @@ export default function POS() {
     [sales]
   );
 
+  // Si la mesa abierta en pantalla ya no está pendiente en el servidor, el
+  // POS la suelta: deja de "editarla" (un guardado sería rechazado, #7)
+  // pero conserva lo ingresado para no perderlo (issue #21). Mientras este
+  // mismo equipo cobra o anula, el cierre propio no cuenta como externo.
+  useEffect(() => {
+    if (isSubmitting) return;
+    const staleStatus = getStaleTicketStatus(sales, activeTicketId);
+    if (!staleStatus) return;
+
+    const message = `El pedido ${activeTicketId} ${STALE_TICKET_LABELS[staleStatus]}.`;
+    setActiveTicketId(null);
+    // Lo que queda en pantalla pasa a ser otro pedido: estrena clave (#10).
+    setClientRequestId(createClientRequestId());
+    setStaleTicketNotice(message);
+    toast.warning(message, { description: STALE_TICKET_HINT });
+  }, [sales, activeTicketId, isSubmitting]);
+
   const posMetrics = useMemo(() => {
     const todayRevenue = todaySales.reduce((sum, s) => sum + s.totalAmount, 0);
     const avgTicket = todaySales.length > 0 ? todayRevenue / todaySales.length : 0;
@@ -290,8 +353,31 @@ export default function POS() {
     ];
   }, [todaySales, completedSales, pendingTickets]);
 
+  // Opción 1 del issue #15: si la cantidad pasa el stock disponible se
+  // avisa y se deja continuar tras confirmar. El stock puede quedar
+  // negativo mientras no se valide el inventario del computador B.
+  const confirmOverStock = (item, nextQty) => {
+    const key = `${item.type}-${item.id}`;
+    const available = availableByKey.get(key) ?? 0;
+    if (nextQty <= available || overStockConfirmed.has(key)) return true;
+
+    const question =
+      available > 0
+        ? `Solo quedan ${available} de "${item.name}" según el inventario. ¿Agregar igual?`
+        : `"${item.name}" figura sin stock en el inventario. ¿Agregar igual?`;
+    if (!window.confirm(`${question}
+
+El stock quedará en negativo.`)) return false;
+
+    setOverStockConfirmed((prev) => new Set(prev).add(key));
+    return true;
+  };
+
   // Ticket actions
   const handleAddItem = (item) => {
+    const current = ticketItems.find((t) => t.id === item.id && t.type === item.type);
+    if (!confirmOverStock(item, (current?.quantity || 0) + 1)) return;
+
     setTicketItems((prev) => {
       const existing = prev.find((t) => t.id === item.id && t.type === item.type);
       if (existing) {
@@ -316,6 +402,11 @@ export default function POS() {
   };
 
   const handleUpdateQty = (id, type, delta) => {
+    const current = ticketItems.find((t) => t.id === id && t.type === type);
+    if (delta > 0 && current && !confirmOverStock(current, current.quantity + delta)) {
+      return;
+    }
+
     setTicketItems((prev) => {
       return prev
         .map((item) => {
@@ -337,6 +428,9 @@ export default function POS() {
 
   const handleClearTicket = () => {
     setTicketItems([]);
+    setClientRequestId(createClientRequestId());
+    setStaleTicketNotice("");
+    setOverStockConfirmed(new Set());
     setErrors({});
     setSuccessMessage("");
   };
@@ -348,12 +442,18 @@ export default function POS() {
     setPaymentMethod("Tarjeta / Débito");
     setTicketNotes("");
     setActiveTicketId(null);
+    setClientRequestId(createClientRequestId());
+    setStaleTicketNotice("");
+    setOverStockConfirmed(new Set());
     setErrors({});
   };
 
   // Carga una mesa/pedido pendiente en pantalla para agregar productos o cobrar
   const handleSelectPendingTicket = (ticket) => {
     setActiveTicketId(ticket.id);
+    setClientRequestId(createClientRequestId());
+    setStaleTicketNotice("");
+    setOverStockConfirmed(new Set());
     setTableOrCustomer(ticket.tableOrCustomer);
     setPaymentMethod(ticket.paymentMethod || "Tarjeta / Débito");
     setTicketNotes(ticket.notes || "");
@@ -397,11 +497,10 @@ export default function POS() {
     }
 
     // dispatch ya muestra el error del servidor con un toast y lo relanza:
-    // si falla, se conserva el formulario para reintentar.
-    const ticketId = activeTicketId || generateSaleId();
+    // si falla, se conserva el formulario (y su clave) para reintentar.
     setIsSubmitting(true);
     try {
-      await saveTicket({ id: ticketId, ...salePayload });
+      await saveTicket({ ...ticketReference(), ...salePayload });
     } catch {
       return;
     } finally {
@@ -444,13 +543,20 @@ export default function POS() {
     // con lo que finalmente se cobró, venga o no de una mesa pendiente.
     // closeTicket debe esperar a saveTicket: si llega antes al servidor no
     // encuentra el ticket pendiente y no cierra nada.
-    const ticketId = activeTicketId || generateSaleId();
     setIsSubmitting(true);
     try {
-      await saveTicket({ id: ticketId, ...salePayload });
+      const savedState = await saveTicket({ ...ticketReference(), ...salePayload });
+      const ticketId =
+        activeTicketId ||
+        savedState.sales.find((s) => s.clientRequestId === clientRequestId)?.id;
+      if (!ticketId) {
+        toast.error("No se pudo ubicar el pedido guardado. Revisa las mesas activas antes de cobrar.");
+        return;
+      }
       // Si el cierre falla, el reintento debe actualizar este mismo ticket
-      // pendiente en vez de crear otro con un id nuevo.
+      // pendiente en vez de crear otro. La clave ya quedó usada.
       setActiveTicketId(ticketId);
+      setClientRequestId(createClientRequestId());
       await closeTicket({ saleId: ticketId, paymentMethod, notes: ticketNotes });
     } catch {
       return;
@@ -466,11 +572,17 @@ export default function POS() {
     setTimeout(() => setSuccessMessage(""), 4500);
   };
 
+  // Un ticket existente se identifica por su id; uno nuevo, por la clave de
+  // idempotencia, y el servidor le asigna el id.
+  const ticketReference = () =>
+    activeTicketId ? { id: activeTicketId } : { clientRequestId };
+
   // Arma el pedido actual (aún no guardado) con la misma forma que
   // espera la impresora, para poder imprimirlo sin depender de que ya
   // se haya cerrado la venta.
   const buildCurrentSalePayload = () => ({
-    id: activeTicketId || generateSaleId(),
+    // Un pedido nuevo todavía no tiene id: lo asigna el servidor al guardar.
+    id: activeTicketId || "Nuevo",
     tableOrCustomer,
     paymentMethod,
     date: getTodayISODate(),
@@ -526,11 +638,15 @@ export default function POS() {
   };
 
   const handleCancelPendingTicket = async (saleId) => {
+    if (isSubmitting) return;
     if (window.confirm(`¿Anular el pedido pendiente ${saleId}? Se reintegrará el stock reservado.`)) {
+      setIsSubmitting(true);
       try {
         await voidSale(saleId);
       } catch {
         return;
+      } finally {
+        setIsSubmitting(false);
       }
       if (activeTicketId === saleId) {
         resetCurrentForm();
@@ -723,12 +839,12 @@ export default function POS() {
                     <div
                       key={`${item.type}-${item.id}`}
                       className={`pos-item-card ${isOutOfStock ? "out-of-stock" : ""}`}
-                      onClick={() => !isOutOfStock && handleAddItem(item)}
+                      onClick={() => handleAddItem(item)}
                       role="button"
-                      tabIndex={isOutOfStock ? -1 : 0}
+                      tabIndex={0}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
-                          if (!isOutOfStock) handleAddItem(item);
+                          handleAddItem(item);
                         }
                       }}
                     >
@@ -759,7 +875,6 @@ export default function POS() {
                         <button
                           type="button"
                           className="mini-btn add-btn"
-                          disabled={isOutOfStock}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAddItem(item);
@@ -800,6 +915,12 @@ export default function POS() {
             </div>
 
             <form onSubmit={handleCompleteSale} noValidate>
+              {staleTicketNotice && (
+                <div className="form-alert" role="alert" style={{ marginBottom: 12 }}>
+                  <strong>{staleTicketNotice}</strong> {STALE_TICKET_HINT}
+                </div>
+              )}
+
               {hasValidationErrors(errors) && (
                 <div className="form-alert" role="alert" style={{ marginBottom: 12 }}>
                   {errors.items || errors.tableOrCustomer || errors.paymentMethod || "Revisa el ticket antes de continuar."}
@@ -843,47 +964,56 @@ export default function POS() {
                   </div>
                 ) : (
                   <ul className="ticket-items-list">
-                    {ticketItems.map((item) => (
-                      <li key={`${item.type}-${item.id}`} className="ticket-item-row">
-                        <div className="ticket-item-info">
-                          <strong>{item.name}</strong>
-                          <span>{formatCurrency(item.salePrice)} c/u</span>
-                        </div>
+                    {ticketItems.map((item) => {
+                      const available = availableByKey.get(`${item.type}-${item.id}`) ?? 0;
+                      return (
+                        <li key={`${item.type}-${item.id}`} className="ticket-item-row">
+                          <div className="ticket-item-info">
+                            <strong>{item.name}</strong>
+                            <span>{formatCurrency(item.salePrice)} c/u</span>
+                            {item.quantity > available && (
+                              <span className="ticket-stock-warning">
+                                <AlertTriangle size={12} />
+                                {available > 0 ? `Supera el stock: quedan ${available}` : "Sin stock en inventario"}
+                              </span>
+                            )}
+                          </div>
 
-                        <div className="ticket-qty-controls">
+                          <div className="ticket-qty-controls">
+                            <button
+                              type="button"
+                              className="qty-stepper-btn"
+                              onClick={() => handleUpdateQty(item.id, item.type, -1)}
+                              aria-label={`Disminuir ${item.name}`}
+                            >
+                              <Minus size={13} />
+                            </button>
+                            <span className="qty-number">{item.quantity}</span>
+                            <button
+                              type="button"
+                              className="qty-stepper-btn"
+                              onClick={() => handleUpdateQty(item.id, item.type, 1)}
+                              aria-label={`Aumentar ${item.name}`}
+                            >
+                              <Plus size={13} />
+                            </button>
+                          </div>
+
+                          <div className="ticket-item-subtotal">
+                            <strong>{formatCurrency(item.quantity * item.salePrice)}</strong>
+                          </div>
+
                           <button
                             type="button"
-                            className="qty-stepper-btn"
-                            onClick={() => handleUpdateQty(item.id, item.type, -1)}
-                            aria-label={`Disminuir ${item.name}`}
+                            className="mini-btn remove-ticket-btn"
+                            onClick={() => handleRemoveItem(item.id, item.type)}
+                            aria-label={`Eliminar ${item.name}`}
                           >
-                            <Minus size={13} />
+                            <Trash2 size={14} />
                           </button>
-                          <span className="qty-number">{item.quantity}</span>
-                          <button
-                            type="button"
-                            className="qty-stepper-btn"
-                            onClick={() => handleUpdateQty(item.id, item.type, 1)}
-                            aria-label={`Aumentar ${item.name}`}
-                          >
-                            <Plus size={13} />
-                          </button>
-                        </div>
-
-                        <div className="ticket-item-subtotal">
-                          <strong>{formatCurrency(item.quantity * item.salePrice)}</strong>
-                        </div>
-
-                        <button
-                          type="button"
-                          className="mini-btn remove-ticket-btn"
-                          onClick={() => handleRemoveItem(item.id, item.type)}
-                          aria-label={`Eliminar ${item.name}`}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </li>
-                    ))}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>

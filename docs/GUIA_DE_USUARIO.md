@@ -1,20 +1,18 @@
 # Guía de Usuario — Sistema Restaurante El Mesón de Los Laureles
 
-> Manual práctico para el personal del restaurante. Esta guía asume que
-> ya has iniciado sesión en el sistema.
+> Manual práctico para el personal del restaurante. El sistema no pide
+> usuario ni contraseña: basta con estar en la red WiFi del local.
 
 ## 1. Primeros Pasos
 
 ### 1.1 Acceso al Sistema
 
-El sistema corre en el computador de escritorio del local. Para que
-funcione, **ese computador debe estar encendido y conectado a la red
+El sistema corre en el servidor del local (un computador dedicado). Para
+que funcione, **el servidor debe estar encendido y conectado a la red
 WiFi** del restaurante — es el que guarda toda la información.
 
-- **En el propio computador de escritorio**: abre el navegador en
-  `http://localhost:3000` (o la dirección que indique el administrador).
-- **En la tablet o el celular**: conéctate a la misma red WiFi y abre el
-  navegador en `http://<IP-del-computador>:3000` (el administrador te
+- **En la tablet, el celular o un PC**: conéctate a la misma red WiFi y
+  abre el navegador en `http://<IP-del-servidor>:3000` (el administrador te
   da esta dirección — no cambia salvo que se reconfigure la red).
 - El sistema carga automáticamente con los datos actuales. Si tarda unos
   segundos en aparecer o dice "Conectando con el servidor local…", es
@@ -31,7 +29,7 @@ El sistema tiene un menú lateral con las siguientes secciones:
 |---|---|---|
 | 📊 | **Panel** | Vista general de KPIs y alertas |
 | 📦 | **Inventario** | Consultar y gestionar stock |
-| 🛒 | **Compras** | Crear y recibir órdenes de compra |
+| 🛒 | **Compras** | Registrar compras recibidas y armar pedidos |
 | 📋 | **Recetas** | Consultar fichas técnicas y costos |
 | 💰 | **POS** | Punto de venta / caja |
 | 📈 | **Reportes** | Reportes analíticos y exportación |
@@ -102,45 +100,38 @@ nombre o categoría.
 
 ## 4. Compras
 
-### 4.1 Crear Orden de Compra
+### 4.1 Registrar una Compra Recibida
+
+Es la forma de cargar al sistema lo que se compró y ya llegó.
 
 1. Ve a **Compras** en el menú.
-2. Haz clic en **Nueva Orden**.
-3. Selecciona el proveedor.
-4. Agrega productos:
-   - Busca el producto en el catálogo.
-   - Ingresa la cantidad y unidad.
-   - Ingresa el costo unitario estimado.
-5. Revisa el total y confirma.
+2. En **Compras recibidas**, haz clic en **+ Registrar compra**.
+3. Indica el proveedor y la fecha.
+4. Agrega cada producto con la cantidad y el precio pagado.
+5. Confirma con **Registrar compra**.
 
-> La orden se crea en estado **Pendiente**.
+> Al registrar, el stock sube y el precio pagado pasa a ser el costo del
+> producto. La compra aparece en la tabla de **Compras recibidas**. El
+> proveedor habitual de cada producto no cambia.
 
-### 4.2 Confirmar Orden (En Tránsito)
+### 4.2 Planificador y Borrador de Pedido
 
-1. En la lista de órdenes, haz clic en la orden.
-2. Haz clic en **Confirmar Envío**.
-3. La orden pasa a estado **En Tránsito**.
+El **Planificador Inteligente de Compras** muestra los insumos que
+tienen stock actual igual o menor a su stock mínimo. Al agregarlos al
+borrador, la cantidad sugerida es lo que falta para llegar al mínimo
+(mínimo 1). No descuenta compras ya pedidas ni agrega margen de
+seguridad: revisar a mano si algo ya viene en camino.
 
-### 4.3 Recibir Mercancía
+1. Presiona **+ Agregar** en un insumo (o **+ Agregar Todos los
+   Críticos**) para moverlo al borrador.
+2. En el **Borrador de Orden de Compra**, ajusta cantidades y elige el
+   proveedor.
+3. **Generar Orden de Compra Final (Enviar por WA)** abre WhatsApp con el
+   pedido listo para enviar al proveedor.
 
-1. En la lista de órdenes, haz clic en la orden **En Tránsito**.
-2. Haz clic en **Recibir**.
-3. Ingresa la cantidad real recibida (puede diferir del pedido).
-4. Confirma la recepción.
-
-> Al recibir, el stock se actualiza automáticamente y se registra el costo
-> real del producto.
-
-### 4.4 Sugerencias de Compra
-
-El sistema genera automáticamente sugerencias de compra basadas en:
-- Stock actual vs. stock mínimo
-- Órdenes en tránsito
-- Margen de seguridad
-
-1. Ve a **Compras** → pestaña **Sugerencias**.
-2. Revisa las sugerencias.
-3. Haz clic en **Crear OC** para generar una orden con un solo clic.
+> El borrador **no se guarda en el sistema** ni sube el stock: solo arma
+> el mensaje. Cuando la mercadería llegue, regístrala con
+> **+ Registrar compra** (§4.1).
 
 ## 5. Recetas
 
@@ -169,56 +160,69 @@ muestra como costo por unidad de rendimiento (ej. $/un, $/ml).
 
 ## 6. Punto de Venta (POS)
 
-### 6.1 Tomar una Orden
+### 6.1 Elegir Productos
 
 1. Ve a **POS** en el menú.
-2. La carta muestra todas las recetas de venta con:
-   - Nombre
-   - Precio de venta
-   - Porciones disponibles (en tiempo real)
-   - Costo y margen
+2. La carta se muestra por **categorías**: toca una categoría para ver
+   sus productos, y **Volver a categorías** para regresar. También puedes
+   filtrar con el selector de categoría.
+3. Cada producto muestra su precio y las porciones disponibles según el
+   inventario. Un producto sin stock se ve apagado, pero se puede vender.
 
-### 6.2 Agregar al Ticket
+### 6.2 Armar el Pedido (Mesa)
 
-1. Haz clic en una receta para agregar una unidad al ticket.
-2. Repite para agregar más unidades o diferentes recetas.
-3. El ticket se actualiza en tiempo real con el total.
+1. Toca un producto para agregarlo al ticket; repite para sumar unidades.
+2. Escribe la **Mesa / Identificador** y, si hace falta, una nota para
+   cocina.
+3. Haz clic en **Guardar Pedido**. La mesa queda en **Mesas / Pedidos
+   Activos** y el stock se reserva (se descuenta) en ese momento.
+4. Para seguir agregando, toca la mesa en **Mesas / Pedidos Activos**,
+   suma productos y haz clic en **Actualizar Pedido**.
+
+> **Aviso de stock**: si agregas más de lo que el inventario dice que hay,
+> el sistema pregunta "¿Agregar igual?". Si confirmas, la venta sigue y el
+> stock queda en negativo. Avísale al administrador para revisar el
+> inventario.
+
+> Si otro equipo cobra o anula la mesa que tienes abierta, el POS te avisa
+> y suelta esa mesa, pero conserva lo que habías ingresado.
 
 ### 6.3 Cobrar
 
-1. Revisa el ticket.
-2. Selecciona el método de pago:
-   - **Efectivo**
-   - **Tarjeta**
-   - **Transferencia**
-3. Haz clic en **Cobrar**.
+1. Abre la mesa (o arma el ticket directamente, sin guardarlo antes).
+2. Selecciona el método de pago: **Efectivo**, **Tarjeta** o
+   **Transferencia**.
+3. Haz clic en **Cobrar & Cerrar**.
 
-> Al cobrar, el stock se reduce automáticamente y se registra la venta.
+> Si la red falla al cobrar, puedes reintentar: el sistema no duplica la
+> venta.
 
 ### 6.4 Imprimir Comanda y Cuenta
 
-Si el desktop tiene una impresora térmica configurada (ver
-`docs/GUIA_DE_DEPLOYMENT.md` y `server/printer.js`):
+Si el servidor tiene una impresora térmica configurada (ver
+`docs/GUIA_DE_DEPLOYMENT.md` §2.7):
 
-- **Comanda a cocina**: envía a la impresora los ítems y cantidades del
-  pedido actual (sin precios) para que cocina prepare. Incluye la nota
-  del pedido si se agregó una.
-- **Cuenta del cliente**: envía a la impresora el detalle con precios,
-  el total y una sugerencia de propina del 10%.
+- **Comanda a cocina** (botón con el ícono de cubiertos): imprime los
+  ítems y cantidades del pedido actual (sin precios), con la nota si se
+  agregó una.
+- **Cuenta del cliente** (botón con el ícono de boleta): imprime el
+  detalle con precios, el total y una sugerencia de propina del 10%.
 - También se puede **reimprimir la cuenta** de una venta ya cerrada
   desde el historial.
 
-> Si la impresora no está compartida/configurada, el sistema muestra un
-> error al intentar imprimir mientras el resto del POS sigue funcionando
-> con normalidad (la impresión es independiente de registrar la venta).
+> Si la impresora no está configurada, el sistema muestra un error al
+> intentar imprimir y el resto del POS sigue funcionando con normalidad
+> (la impresión es independiente de registrar la venta).
 
-### 6.5 Anular una Venta
+### 6.5 Anular
 
-1. En el ticket, haz clic en **Anular**.
-2. Confirma la anulación.
+- **Una mesa pendiente**: en **Mesas / Pedidos Activos**, usa el botón de
+  anular de esa mesa y confirma. Se reintegra el stock reservado.
+- **Una venta ya cobrada**: en el **Historial de Ventas & Comandas**, usa
+  la acción de anular y confirma.
 
 > La anulación restaura automáticamente los ingredientes al inventario.
-> El ticket se marca como anulado y no afecta los reportes.
+> La venta queda como anulada y no suma en los reportes.
 
 ## 7. Proveedores
 
@@ -265,14 +269,14 @@ Si el desktop tiene una impresora térmica configurada (ver
 
 ### 9.1 Crear Backup
 
-1. En el **Panel**, haz clic en **Respaldar Datos**.
+1. En el **Panel**, haz clic en **Respaldar JSON**.
 2. Se descargará un archivo JSON con todo el estado del sistema.
 
 > **Recomendación**: Crea un backup al final de cada día.
 
 ### 9.2 Restaurar Backup
 
-1. En el **Panel**, haz clic en **Restaurar Backup**.
+1. En el **Panel**, haz clic en **Restaurar JSON**.
 2. Selecciona el archivo JSON descargado anteriormente.
 3. Confirma la restauración.
 
@@ -283,23 +287,27 @@ Si el desktop tiene una impresora térmica configurada (ver
 
 ### 10.1 El sistema no carga (o dice "Conectando con el servidor local…")
 
-- Verifica que el **computador de escritorio esté encendido** y no esté
-  en modo de suspensión/reposo — es el que sirve el sistema a los demás
+- Verifica que el **servidor esté encendido** y no esté en modo de
+  suspensión/reposo — es el que sirve el sistema a los demás
   dispositivos.
 - Verifica que tu dispositivo (tablet/celular) esté conectado a la
-  **misma red WiFi** que el computador de escritorio.
+  **misma red WiFi** que el servidor.
 - Verifica que estés entrando a la dirección correcta
-  (`http://<IP-del-computador>:3000` — pregúntale al administrador si no
+  (`http://<IP-del-servidor>:3000` — pregúntale al administrador si no
   la tienes).
 - Verifica que el navegador esté actualizado (Chrome, Firefox, Edge).
 - Refresca la página (Ctrl+F5 o desliza hacia abajo en móvil).
-- Si persiste, contacta al administrador — puede ser un tema de Firewall
-  del computador de escritorio bloqueando la conexión.
+- Si persiste, contacta al administrador — puede ser el firewall del
+  servidor bloqueando la conexión, o que el servidor no arrancó (por
+  ejemplo, porque su archivo de datos está dañado; ver
+  `docs/GUIA_DE_DEPLOYMENT.md` §9).
 
 ### 10.2 Una receta no aparece en POS
 
-- Verifica que la receta esté **activa** en la sección de Recetas.
-- Verifica que tenga ingredientes con stock suficiente.
+- Las recetas base (sub-recetas, como masas o salsas) no aparecen en el
+  POS: son preparaciones internas.
+- Revisa el filtro de categoría (o vuelve a "Todas").
+- Un producto sin stock sigue apareciendo, aunque se ve apagado.
 - Si el costo es 0, es posible que falte medir una sub-receta.
 
 ### 10.3 El stock no se actualiza después de una venta
@@ -320,7 +328,7 @@ Si el desktop tiene una impresora térmica configurada (ver
 ### 10.5 Las sugerencias de compra no aparecen
 
 - Verifica que los productos tengan definido `minStock`.
-- Verifica que no haya órdenes en tránsito cubriendo el déficit.
+- Verifica que no haya pedidos en camino cubriendo el déficit.
 
 ## 11. Contacto y Soporte
 

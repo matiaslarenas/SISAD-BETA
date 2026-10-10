@@ -9,7 +9,7 @@ Documento completo de referencia: `docs/REGLAS_DE_NEGOCIO.md`. Léelo antes
 de escribir o modificar una fórmula si no lo tienes en contexto.
 
 > Si `docs/` contradice el issue #17 "Estado SISAD" (tablero común) o el
-> código, vale el tablero o el código: `docs/` no se está actualizando por ahora.
+> código, vale el tablero o el código.
 
 ## Fórmulas ya definidas — no reinventar
 
@@ -27,6 +27,14 @@ de escribir o modificar una fórmula si no lo tienes en contexto.
   hayan convertido.
 - **Porciones máximas**: mínimo entre `ingredient.onHand / quantityPerUnit`
   de todos los ingredientes (el "cuello de botella").
+- **Vender sobre el stock (issue #15, opción 1)**: el POS **avisa y deja
+  continuar** tras confirmar; el stock puede quedar negativo. El servidor
+  no rechaza tickets por falta de stock. Así se queda mientras el stock del
+  computador B no esté validado; reconsiderar tope en la UI o rechazo en el
+  servidor después. Al editar un ticket pendiente, lo que ese ticket ya
+  reservó cuenta como disponible (`buildTicketInventory`). El aviso revisa
+  cada plato por separado (`getTicketStockWarnings` en `appState.js`): dos
+  platos que comparten ingrediente pueden no alcanzar juntos.
 - **Déficit de compra**: `max(0, minStock - (onHand + onOrder)) + safetyMargin`.
 
 ## Señal de alerta al revisar costos

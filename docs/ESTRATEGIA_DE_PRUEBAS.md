@@ -6,7 +6,7 @@
 
 El sistema prioriza **pruebas de lógica de negocio pura** sobre pruebas de
 interfaz de usuario. La regla de negocio central (inventario derivado de
-movimientos) es matemática y determinista, por lo que es altamente pretable.
+movimientos) es matemática y determinista, por lo que es altamente testeable.
 
 ### Principios
 
@@ -143,7 +143,28 @@ los incluya junto con la sugerencia de propina, etc. No prueban el envío
 real a la impresora (`printTicketBuffer`, que depende de `exec`/Windows)
 ni la ruta HTTP `/api/print-ticket`.
 
-### 3.7 Pruebas de Invariantes
+### 3.7 Pruebas de Persistencia del Servidor
+
+**Ubicación**: `tests/persistence.test.js`
+
+Prueban `server/persistence.js` sobre un directorio temporal: instalación
+nueva sin archivo (crea el estado por defecto), archivo ilegible o vacío
+(`loadState()` lanza error y no modifica el archivo), lectura de lo que
+guardó `saveState()` y de un respaldo descargado desde el Panel.
+
+### 3.8 Pruebas de Scripts
+
+**Ubicación**: `tests/resetQuantities.test.js`, `tests/actualizarCarta.test.js`
+
+Prueban los scripts de `scripts/` sin tocar datos reales:
+- `resetQuantities.test.js`, sobre directorios temporales: que sin
+  `--confirm` no se escriba nada, que aborte si falta el archivo o si hay
+  un servidor escuchando, y que el respaldo se verifique antes de guardar.
+- `actualizarCarta.test.js`: la lógica de carga de la carta
+  (`scripts/lib/cartaPr8.js`): que sea idempotente, que no toque ventas,
+  compras ni movimientos, y que no pise precios editados desde la app.
+
+### 3.9 Pruebas de Invariantes
 
 **Ubicación**: `tests/invariants.test.js`
 
@@ -170,6 +191,8 @@ Pruebas matemáticas que certifican invariantes del sistema:
 | Alertas | ✅ Alta | `alerts.test.js` |
 | Invariantes | ✅ Alta | `invariants.test.js` |
 | Formato de tickets ESC/POS | ✅ Alta | `printer.test.js` |
+| Persistencia del servidor | ✅ Alta | `persistence.test.js` |
+| Scripts de reset y carga de carta | ✅ Alta | `resetQuantities.test.js`, `actualizarCarta.test.js` |
 
 ### 4.2 Qué NO está cubierto
 
@@ -182,10 +205,11 @@ Pruebas matemáticas que certifican invariantes del sistema:
   falta es el envío real a la impresora (`printTicketBuffer`) y el
   ruteo HTTP en sí.
 - **Sincronización multi-dispositivo**: el comportamiento real de
-  polling entre desktop/tablet/celular se valida manualmente, no con
+  polling entre servidor, tablet y celular se valida manualmente, no con
   tests automáticos.
-- **Persistencia en disco** (`server/persistence.js`): escritura
-  atómica y migración de `app-state.json`.
+- **Corte de luz durante una escritura**: la escritura atómica de
+  `saveState()` (archivo temporal + rename) no se prueba simulando una
+  interrupción.
 - **Responsive design**: comportamiento en móviles/tablets.
 - **Performance**: tiempos de renderizado.
 - **Accesibilidad**: ARIA, navegación con teclado.
@@ -255,12 +279,17 @@ function createTestState() {
 }
 ```
 
-## 6. Integración Continua
+## 6. Verificaciones antes de integrar
+
+> El CI (`.github/workflows/ci.yml`, GitHub Actions) corre `npm ci`,
+> `npm test` y `npm run build` en cada PR y en cada push a `main`. Igual
+> conviene correrlas a mano antes de subir cambios.
 
 ### 6.1 Verificaciones Pre-Commit
 
-- `npm test` — todos los tests deben pasar.
-- `npm run build` — el build de producción debe ser exitoso.
+- Validación según el riesgo de la tarea (ver `CLAUDE.md`, Flujo de trabajo):
+  si toca código, `npm test` debe pasar; si toca UI, además `npm run build`.
+  La documentación pura queda cubierta por el CI.
 
 ### 6.2 Verificaciones Pre-Merge
 
