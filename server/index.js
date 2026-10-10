@@ -27,6 +27,7 @@ import { fileURLToPath } from "node:url";
 import { appDataReducer } from "../src/state/rootReducer.js";
 import { DomainError } from "../src/state/appState.js";
 import { loadState, saveState } from "./persistence.js";
+import { createStateStore } from "./stateStore.js";
 import {
   buildKitchenComandaTicket,
   buildCustomerReceiptTicket,
@@ -51,23 +52,22 @@ const MIME_TYPES = {
 
 // --- Estado en memoria + persistencia en disco -----------------------
 
-let state;
+let initialState;
 try {
-  state = loadState();
+  initialState = loadState();
 } catch (error) {
   // Un app-state.json ilegible detiene el arranque: partir de la semilla
   // sobrescribiría los datos reales en la primera acción.
   console.error(`\nNo se pudo iniciar el servidor.\n${error.message}\n`);
   process.exit(1);
 }
-let revision = 1;
 
-function applyAction(action) {
-  state = appDataReducer(state, action);
-  revision += 1;
-  saveState(state);
-  return state;
-}
+// Guarda antes de publicar: si falla la escritura, el estado no cambia.
+const store = createStateStore({
+  initialState,
+  reducer: appDataReducer,
+  save: (nextState) => saveState(nextState),
+});
 
 // --- Utilidades HTTP ----------------------------------------------------
 
@@ -132,7 +132,7 @@ async function serveStatic(req, res, pathname) {
 
 async function handleApi(req, res, pathname) {
   if (pathname === "/api/state" && req.method === "GET") {
-    sendJson(res, 200, { revision, data: state });
+    sendJson(res, 200, { revision: store.getRevision(), data: store.getState() });
     return;
   }
 
@@ -146,8 +146,8 @@ async function handleApi(req, res, pathname) {
         return;
       }
 
-      const newState = applyAction(action);
-      sendJson(res, 200, { revision, data: newState });
+      const newState = store.dispatch(action);
+      sendJson(res, 200, { revision: store.getRevision(), data: newState });
     } catch (error) {
       console.error("[api/dispatch]", error);
       // Solo las reglas de negocio llevan un mensaje apto para la caja;
