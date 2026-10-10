@@ -200,14 +200,18 @@ Servidor HTTP nativo. Responsabilidades:
   tener que hacer diff profundo del JSON completo.
 - `POST /api/dispatch` → recibe una acción, la aplica vía
   `appDataReducer`, persiste con `saveState()`, y devuelve el nuevo
-  estado + revisión.
+  estado + revisión. El orden lo fija `server/stateStore.js`: primero
+  guarda y solo después publica el estado y sube la revisión. Si el
+  reducer o el guardado fallan, el estado en memoria y la revisión no
+  cambian y el cliente recibe error.
 - `POST /api/print-ticket` → recibe `{ kind: "kitchen" | "customer", ...venta }`
   y envía un ticket a la impresora térmica USB del servidor (ver
   `server/printer.js` más abajo). **No es una acción de `dispatch`**: no
   pasa por `appDataReducer` ni muta/persiste el estado — es un efecto
   físico (imprimir) sobre una venta que ya existe.
-- Mantiene el estado en memoria (`let state`) para no leer el disco en
-  cada request; solo escribe a disco tras cada mutación.
+- Mantiene el estado en memoria (`createStateStore` de
+  `server/stateStore.js`) para no leer el disco en cada request; escribe
+  a disco en cada mutación, antes de publicarla.
 
 ### `server/persistence.js`
 Equivalente de `src/utils/storage.js` pero sobre el sistema de archivos
@@ -556,7 +560,8 @@ recordSale()                   → movimientos de inventario SIEMPRE contra
 - `tests/validation.test.js` — validadores de formularios y backups.
 - `tests/printer.test.js` — formato de los tickets ESC/POS.
 - `tests/persistence.test.js` — persistencia del servidor (archivo
-  ilegible, vacío, instalación nueva, guardado).
+  ilegible, vacío, instalación nueva, guardado, y guardar antes de
+  publicar en `server/stateStore.js`).
 - `tests/resetQuantities.test.js` — protecciones del script de reset.
 - `tests/actualizarCarta.test.js` — script de carga de la carta.
 

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- 2026-10-10 — `POST /api/dispatch` guarda el estado antes de publicarlo
+  (#31). Antes, si fallaba la escritura en disco, `GET /api/state` ya
+  mostraba el cambio y este se perdía al reiniciar. Lógica en
+  `server/stateStore.js`, con tests en `tests/persistence.test.js`.
+
 ### Changed
 - 2026-10-10 — Flujo de trabajo v2 formalizado:
   - `CLAUDE.md`, sección "Flujo de trabajo": paquete de aprobación con

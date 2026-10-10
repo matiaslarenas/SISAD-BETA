@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { loadState, saveState, StateFileError } from "../server/persistence.js";
 import { createDefaultAppState } from "../src/state/appState.js";
+import { createStateStore } from "../server/stateStore.js";
 
 function withDataDir(fn) {
   const dir = mkdtempSync(path.join(tmpdir(), "meson-persistence-"));
@@ -69,5 +70,80 @@ test("loadState: acepta un respaldo descargado desde el Panel ({ schemaVersion, 
     );
 
     assert.deepEqual(loadState(dir).sales, []);
+  });
+});
+
+// --- Guardar antes de publicar (#31) --------------------------------------
+
+function counterReducer(state, action) {
+  if (action.type === "fail") throw new Error("regla de negocio");
+  return { ...state, count: state.count + 1 };
+}
+
+test("stateStore: si el guardado falla, el estado y la revisión no cambian", () => {
+  const store = createStateStore({
+    initialState: { count: 0 },
+    reducer: counterReducer,
+    save: () => {
+      throw new Error("ENOSPC: disco lleno");
+    },
+  });
+
+  assert.throws(() => store.dispatch({ type: "add" }), /ENOSPC/);
+  assert.deepEqual(store.getState(), { count: 0 });
+  assert.equal(store.getRevision(), 1);
+});
+
+test("stateStore: guarda exactamente el estado que publica y sube la revisión", () => {
+  const saved = [];
+  const store = createStateStore({
+    initialState: { count: 0 },
+    reducer: counterReducer,
+    save: (state) => saved.push(state),
+  });
+
+  const result = store.dispatch({ type: "add" });
+
+  assert.deepEqual(saved, [{ count: 1 }]);
+  assert.equal(result, saved[0]);
+  assert.equal(store.getState(), saved[0]);
+  assert.equal(store.getRevision(), 2);
+});
+
+test("stateStore: si el reducer lanza, no se guarda nada", () => {
+  let saves = 0;
+  const store = createStateStore({
+    initialState: { count: 0 },
+    reducer: counterReducer,
+    save: () => {
+      saves += 1;
+    },
+  });
+
+  assert.throws(() => store.dispatch({ type: "fail" }), /regla de negocio/);
+  assert.equal(saves, 0);
+  assert.deepEqual(store.getState(), { count: 0 });
+  assert.equal(store.getRevision(), 1);
+});
+
+test("stateStore: con saveState real, un fallo de escritura deja el archivo y la memoria como estaban", () => {
+  withDataDir((dir) => {
+    const initial = createDefaultAppState();
+    saveState(initial, dir);
+    const file = path.join(dir, "app-state.json");
+    const before = readFileSync(file, "utf-8");
+    // Un directorio con el nombre del temporal hace fallar writeFileSync.
+    mkdirSync(`${file}.tmp`);
+
+    const store = createStateStore({
+      initialState: initial,
+      reducer: (state) => ({ ...state, sales: [] }),
+      save: (state) => saveState(state, dir),
+    });
+
+    assert.throws(() => store.dispatch({ type: "any" }));
+    assert.equal(store.getState(), initial);
+    assert.equal(store.getRevision(), 1);
+    assert.equal(readFileSync(file, "utf-8"), before);
   });
 });
