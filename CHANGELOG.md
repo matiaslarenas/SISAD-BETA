@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- 2026-10-10 — Flujo de trabajo v2 formalizado:
+  - `CLAUDE.md`, sección "Flujo de trabajo": paquete de aprobación con
+    registro en el issue de la tarea, cuatro puertas de Matias, tres capas
+    de información (#17 pasa a índice breve), responsable único y revisor
+    previsto, riesgo bajo/medio/alto con revisión y validación
+    proporcionales, línea de dependencia y mejora ligera. Sale el reparto
+    fijo "sin interfaz / con interfaz" y el `npm test` universal.
+  - `.github/copilot-instructions.md`: rol de auditor y revisor de Copilot;
+    grill-me como herramienta opcional.
+  - `.github/pull_request_template.md`: issue de la tarea, riesgo, línea de
+    dependencia y evidencia de UI.
+  - `docs/GUIA_DE_DESARROLLO.md` §9.1 y `docs/ESTRATEGIA_DE_PRUEBAS.md`
+    §6.1: remiten a la validación según el riesgo.
 - 2026-10-10 — Documentación y archivos de contexto al día con `main`:
   - `CLAUDE.md` nuevo: entrada única para herramientas de IA (comandos,
     arquitectura, reglas no negociables).
