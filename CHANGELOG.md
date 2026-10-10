@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Docs
+- 2026-10-10 — Impresión en Linux al día tras el merge de #9 y #26:
+  `CLAUDE.md`, skill `meson-backend`, `docs/ARCHITECTURE.md` y
+  `docs/GUIA_DE_DEPLOYMENT.md` §2.7 (pasos para Ubuntu). Las skills
+  `meson-*` dejan de llamar "tablero" al #17 (tarea 2 de #30).
+
 ### Fixed
 - 2026-10-10 — `POST /api/dispatch` guarda el estado antes de publicarlo
   (#31). Antes, si fallaba la escritura en disco, `GET /api/state` ya

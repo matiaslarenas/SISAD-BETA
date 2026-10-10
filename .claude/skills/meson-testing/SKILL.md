@@ -8,8 +8,8 @@ description: Usar al corregir un bug o agregar lógica de dominio nueva en el Si
 Documento completo de referencia: `docs/ESTRATEGIA_DE_PRUEBAS.md`. Léelo si
 necesitas más detalle de cobertura o invariantes.
 
-> Si `docs/` contradice el issue #17 "Estado SISAD" (tablero común) o el
-> código, vale el tablero o el código.
+> Si `docs/` contradice el código o GitHub, vale el código o GitHub. El
+> issue #17 "Estado SISAD" es el índice breve del proyecto.
 
 ## Stack (no cambiar)
 
