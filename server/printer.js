@@ -42,6 +42,22 @@ const DOUBLE_ON = `${GS}!\x11`;
 const DOUBLE_OFF = `${GS}!\x00`;
 const CUT = `${GS}V\x00`;
 
+// La XP-P101 arranca en modo chino (GBK): un byte >= 0x80 (é, ñ...) se junta
+// con el siguiente y sale un ideograma (ej. "Débito" -> "D閲ito"). Hasta
+// elegir página de códigos, el texto se manda solo en ASCII: se quitan las
+// tildes y la ñ, y cualquier otro carácter fuera de ASCII queda como "?".
+// Los comandos ESC/POS son todos < 0x80 y pasan intactos.
+export function toTicketAscii(text) {
+  return String(text)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^\x00-\x7f]/g, "?");
+}
+
+function ticketBuffer(parts) {
+  return Buffer.from(toTicketAscii(parts.join("")), "latin1");
+}
+
 // Impresora térmica de 58mm: 32 columnas en fuente normal.
 const LINE_WIDTH = 32;
 const NAME_WIDTH = 19;
@@ -101,7 +117,7 @@ export function buildKitchenComandaTicket(sale) {
   parts.push("\n\n\n");
   parts.push(CUT);
 
-  return Buffer.from(parts.join(""), "latin1");
+  return ticketBuffer(parts);
 }
 
 // Cuenta final para el cliente: detalle de productos con precio, total
@@ -145,7 +161,7 @@ export function buildCustomerReceiptTicket(sale) {
   parts.push("\n\n\n");
   parts.push(CUT);
 
-  return Buffer.from(parts.join(""), "latin1");
+  return ticketBuffer(parts);
 }
 
 const DEFAULT_SHARE = "\\\\localhost\\TICKETS";

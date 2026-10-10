@@ -9,6 +9,7 @@ import {
   buildCustomerReceiptTicket,
   printTicketBuffer,
   resolvePrinterTarget,
+  toTicketAscii,
 } from "../server/printer.js";
 
 const SAMPLE_SALE = {
@@ -315,4 +316,35 @@ test("printTicketBuffer sends tickets one at a time and keeps going after a fail
   await assert.rejects(first, /falla la primera/);
   await second;
   assert.deepEqual(order, ["start:uno", "end:uno", "start:dos", "end:dos"]);
+});
+
+// --- Texto de tickets solo en ASCII (la XP-P101 arranca en modo chino) ---
+
+test("toTicketAscii quita tildes y ñ y deja el resto igual", () => {
+  assert.equal(toTicketAscii("Débito"), "Debito");
+  assert.equal(toTicketAscii("Piña colada"), "Pina colada");
+  assert.equal(toTicketAscii("ÁÉÍÓÚ Ñandú"), "AEIOU Nandu");
+  assert.equal(toTicketAscii("Pizza 2x $8.000"), "Pizza 2x $8.000");
+});
+
+test("toTicketAscii reemplaza por ? lo que no es ASCII ni tilde", () => {
+  assert.equal(toTicketAscii("Té €5"), "Te ?5");
+});
+
+test("los tickets salen sin bytes >= 0x80 y conservan los comandos ESC/POS", () => {
+  const sale = {
+    ...SAMPLE_SALE,
+    paymentMethod: "Débito",
+    notes: "Sin cebolla, piña extra",
+    items: [{ name: "Piña colada", quantity: 1, unitPrice: 3000, totalPrice: 3000 }],
+    totalAmount: 3000,
+  };
+  for (const buffer of [buildKitchenComandaTicket(sale), buildCustomerReceiptTicket(sale)]) {
+    assert.ok(buffer.every((byte) => byte < 0x80), "no debe haber bytes >= 0x80");
+    assert.deepEqual([...buffer.subarray(0, 2)], [0x1b, 0x40], "empieza con ESC @");
+    assert.deepEqual([...buffer.subarray(-3)], [0x1d, 0x56, 0x00], "termina con corte GS V 0");
+  }
+  const text = buildCustomerReceiptTicket(sale).toString("latin1");
+  assert.match(text, /Pago: Debito/);
+  assert.match(text, /Pina colada/);
 });
