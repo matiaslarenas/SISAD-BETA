@@ -17,7 +17,7 @@
 
 ## Library and implementation rules
 
-- Keep all client source code under `src/` and the local server under `server/`; place route-level screens in `src/pages/`, reusable UI in `src/components/`, shared state in `src/context/`, and pure business logic in `src/utils/`.
+- Keep all client source code under `src/` and the local server under `server/`; place route-level screens in `src/pages/`, reusable UI in `src/components/`, shared state in `src/context/`, domain rules (stock, sales, purchases, state normalization) in `src/state/appState.js` with actions in `src/state/rootReducer.js`, and reusable pure calculations (e.g. `recipeCalculator.js`) in `src/utils/`.
 - In the same PR, update whatever the change makes inaccurate: `docs/`, `.claude/skills/meson-*`, `CLAUDE.md`. Always log significant changes in `CHANGELOG.md` after implementing modifications. Include the implementation date in each change entry, and document additions, changes, and fixes with concise bullet points, including the affected files and key behavior.
 - Keep all routes in `src/App.jsx` and use React Router components for navigation. Do not implement navigation with manual URL changes or separate HTML pages.
 - Use React function components and hooks. Use the existing Context provider for shared domain state instead of adding another state-management library.

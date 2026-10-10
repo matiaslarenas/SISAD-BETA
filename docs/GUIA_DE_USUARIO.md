@@ -117,10 +117,10 @@ Es la forma de cargar al sistema lo que se compró y ya llegó.
 ### 4.2 Planificador y Borrador de Pedido
 
 El **Planificador Inteligente de Compras** muestra los insumos que
-alcanzaron o superaron su stock mínimo, calculado con:
-- Stock actual vs. stock mínimo
-- Pedidos ya en camino
-- Margen de seguridad
+tienen stock actual igual o menor a su stock mínimo. Al agregarlos al
+borrador, la cantidad sugerida es lo que falta para llegar al mínimo
+(mínimo 1). No descuenta compras ya pedidas ni agrega margen de
+seguridad: revisar a mano si algo ya viene en camino.
 
 1. Presiona **+ Agregar** en un insumo (o **+ Agregar Todos los
    Críticos**) para moverlo al borrador.

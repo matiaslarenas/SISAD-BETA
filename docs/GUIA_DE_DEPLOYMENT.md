@@ -111,6 +111,26 @@ equivalente; en Linux, revisar `ufw` si está activo). Hay que **aceptar/permiti
 dispositivos no podrán conectarse. Si la tablet/celular no logran cargar
 la página, este es el primer punto a revisar.
 
+Además de permitir el acceso, hay que **limitarlo a los equipos
+autorizados** (ver §7): el servidor no tiene autenticación y cualquier
+equipo del WiFi que llegue al puerto puede cobrar, anular o restaurar un
+respaldo encima de los datos. En Linux con `ufw`, con la IP de cada
+equipo reservada en el router (§2.4):
+
+```bash
+sudo ufw default deny incoming
+sudo ufw allow from <IP-de-la-tablet> to any port 3000 proto tcp
+sudo ufw allow from <IP-del-celular> to any port 3000 proto tcp
+# repetir por cada equipo autorizado; si se administra por SSH, permitirlo antes:
+# sudo ufw allow from <IP-del-equipo-de-administración> to any port 22 proto tcp
+sudo ufw enable
+sudo ufw status numbered
+```
+
+Verificar desde un equipo **no autorizado** conectado al mismo WiFi que
+`http://<IP-del-servidor>:3000` no carga. No escribir las IP reales en el
+repositorio (es público).
+
 ### 2.7 Impresora térmica (opcional)
 
 El POS puede imprimir comandas de cocina y cuentas de cliente en una
@@ -226,7 +246,7 @@ antes de la migración a servidor.
 - **Sin autenticación**: cualquier dispositivo en la red WiFi local puede
   acceder al sistema, cobrar y anular con solo conocer la IP. Antes de
   operar en el local hay que limitar el acceso al puerto del servidor a
-  los equipos autorizados (firewall por IP). En cualquier caso, **no
+  los equipos autorizados (firewall por IP, pasos en §2.6). En cualquier caso, **no
   exponer el puerto del servidor a internet** (no hacer port-forwarding en
   el router).
 - **No hay HTTPS**: al ser tráfico dentro de una red local de confianza,
@@ -272,10 +292,11 @@ antes de la migración a servidor.
 
 - [ ] El servidor sirve la app en `http://localhost:3000`
 - [ ] La tablet/celular puede acceder por `http://<IP-del-servidor>:3000`
-- [ ] Firewall del servidor permite conexiones entrantes al puerto usado
+- [ ] Firewall del servidor permite el puerto solo a los equipos autorizados
+- [ ] Un equipo no autorizado en el mismo WiFi no puede abrir la app
 - [ ] Datos cargan correctamente en todos los dispositivos
 - [ ] POS funciona (registrar una venta de prueba y verla reflejarse en otro dispositivo)
-- [ ] Compras funcionan (crear una OC de prueba)
+- [ ] Compras funcionan (registrar una compra de prueba)
 - [ ] Reportes cargan correctamente
 - [ ] Backup/restauración funciona
 - [ ] Notificar al personal

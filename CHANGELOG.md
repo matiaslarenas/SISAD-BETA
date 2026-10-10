@@ -15,6 +15,8 @@ All notable changes to this project will be documented in this file.
     interfaz actual.
   - Skills `meson-backend`, `meson-testing` y `meson-data-reset` al día.
   - `README.md`: sección "Cómo ejecutar".
+  - `docs/GUIA_DE_DEPLOYMENT.md` §2.6: pasos para limitar el puerto a los
+    equipos autorizados con `ufw` y verificarlo desde un equipo no autorizado.
   - Comentarios de `server/index.js`, `server/persistence.js`,
     `src/main.jsx` y `src/context/AppDataContext.jsx`: el servidor ya no
     es "el computador de escritorio".
