@@ -9,8 +9,8 @@ Documento completo de referencia: `docs/GUIA_DE_DEPLOYMENT.md` y
 `docs/ARCHITECTURE.md` §3 (incluye el diagrama completo del flujo
 servidor↔cliente).
 
-> Si `docs/` contradice el issue #17 "Estado SISAD" (tablero común) o el
-> código, vale el tablero o el código.
+> Si `docs/` contradice el código o GitHub, vale el código o GitHub. El
+> issue #17 "Estado SISAD" es el índice breve del proyecto.
 
 ## Qué es y por qué existe
 
@@ -38,14 +38,11 @@ depende de internet.
 Los trabajos se procesan en secuencia para evitar que se mezclen
 comandas y cuentas. Las pruebas automatizadas cubren selección de modo,
 envíos simulados, limpieza de temporales y cola; no prueban una impresora
-física. La impresión en el computador B con la Xprinter XP-P101 sigue
-pendiente de validación: comprobar conexión y dispositivo USB, permisos
-del usuario, elegir `device` o `cups`, imprimir comanda y cuenta reales,
-y revisar tildes y `ñ`. El texto de los tickets se manda solo en ASCII
-(`toTicketAscii` quita tildes y `ñ`, y deja `?` en lo demás) porque la
+física. La impresión en el computador B con la Xprinter XP-P101 se
+validó el 2026-10-08 en modo `device`. El texto de los tickets se manda
+solo en ASCII (`toTicketAscii` quita tildes y `ñ`, y deja `?` en lo demás) porque la
 XP-P101 arranca en modo chino y un byte >= 0x80 sale como ideograma
-(visto el 2026-10-08: "Débito" salió "D閲ito"). No afirmar que la impresora funciona en el B
-hasta completar esas comprobaciones.
+(visto el 2026-10-08: "Débito" salió "D閲ito").
 
 ## Regla no negociable: sin dependencias externas
 
@@ -121,6 +118,4 @@ acciones. Si agregas un caso nuevo:
   llega del servidor — no lo calcules en el servidor salvo que haya una
   razón concreta para moverlo ahí.
 
-Tests de impresión en `tests/printer.test.js`. Los tickets solo en ASCII
-(la impresora no imprime tildes ni ñ) están en el PR #26, que depende de
-este cambio.
+Tests de impresión en `tests/printer.test.js`.

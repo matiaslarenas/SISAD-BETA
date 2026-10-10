@@ -121,9 +121,10 @@ Code (VS Code, en el equipo de Matias) y GitHub Copilot. Matias decide y es el
 
 ## Impresión
 
-`server/printer.js` en `main` solo imprime en Windows (recurso compartido con
-`copy /b`). El soporte Linux (`/dev/usb/lp0`) y los tickets en ASCII están en
-los PR #9 y #26, todavía sin mergear.
+`server/printer.js` imprime en Linux escribiendo en `/dev/usb/lp0` (modo
+`device`, por defecto) o por CUPS, y en Windows por recurso compartido con
+`copy /b`. Los tickets van solo en ASCII (sin tildes ni ñ). Detalle en la
+skill `meson-backend`.
 
 ## Dónde leer más
 

@@ -7,8 +7,8 @@ description: Usar antes de modificar src/state/appState.js, src/state/rootReduce
 
 Documento completo de referencia: `docs/ARCHITECTURE.md` y `docs/MODELO_DE_DATOS.md`. Lee ambos antes de tocar código de dominio si no los tienes en contexto.
 
-> Si `docs/` contradice el issue #17 "Estado SISAD" (tablero común) o el
-> código, vale el tablero o el código.
+> Si `docs/` contradice el código o GitHub, vale el código o GitHub. El
+> issue #17 "Estado SISAD" es el índice breve del proyecto.
 
 ## Principio central (no negociable)
 

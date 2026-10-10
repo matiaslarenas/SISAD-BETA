@@ -238,12 +238,13 @@ reales en la primera acción. La recuperación está en
 Impresión de tickets en la impresora térmica USB (58mm, protocolo
 ESC/POS) conectada al servidor, invocado desde `POST /api/print-ticket`.
 Sin dependencias externas: arma los bytes ESC/POS a mano
-(`buildKitchenComandaTicket`, `buildCustomerReceiptTicket`) y los manda
-al driver de Windows ya instalado vía un recurso de impresora compartida
-(`copy /b` al share `\\localhost\TICKETS`, configurable con la variable
-de entorno `PRINTER_SHARE`). En `main` solo está implementado para
-`process.platform === "win32"`; el soporte para Linux está en el PR #9
-y los tickets solo en ASCII en el PR #26 (ambos sin mergear). Dos tipos de ticket:
+(`buildKitchenComandaTicket`, `buildCustomerReceiptTicket`), con el texto
+solo en ASCII (sin tildes ni ñ), y los manda según `PRINTER_MODE`:
+`device` (por defecto en Linux) escribe en `PRINTER_DEVICE`
+(`/dev/usb/lp0`); `cups` usa una cola raw (`PRINTER_QUEUE`);
+`windows-share` (por defecto en Windows) hace `copy /b` al share
+`\\localhost\TICKETS` (`PRINTER_SHARE`). Los trabajos se envían en
+secuencia. Dos tipos de ticket:
 - **Comanda de cocina** (`kind: "kitchen"`): ítem y cantidad en letra
   grande, sin precios — la cocina no cobra.
 - **Cuenta del cliente** (`kind: "customer"`): detalle con precios,

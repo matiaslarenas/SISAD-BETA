@@ -137,13 +137,18 @@ El POS puede imprimir comandas de cocina y cuentas de cliente en una
 impresora térmica USB (58mm, ESC/POS) conectada al servidor — ver
 `server/printer.js` y `docs/ARCHITECTURE.md` §3.
 
-> **Estado en `main`:** la impresión solo está implementada para Windows
-> (`process.platform === "win32"`; en otro sistema operativo falla con un
-> error explícito y el resto del sistema sigue funcionando). El soporte
-> para Linux (escritura directa al dispositivo USB, por ejemplo
-> `/dev/usb/lp0`) está en el PR #9, y los tickets solo en ASCII (sin
-> tildes ni ñ, porque la impresora no los imprime bien) en el PR #26.
-> Esta sección se actualiza cuando ambos estén mergeados.
+Los tickets van solo en ASCII (sin tildes ni ñ), porque la impresora
+arranca en un modo que no las imprime bien.
+
+Configuración en Linux (servidor Ubuntu), modo `device`, el predeterminado:
+
+1. Conectar la impresora por USB y comprobar que aparece el dispositivo:
+   `ls -l /dev/usb/lp0`.
+2. Dar permiso al usuario que corre el servidor y volver a iniciar sesión
+   o reiniciar el servicio: `sudo usermod -aG lp <usuario>`.
+3. Si el dispositivo tiene otro nombre, configurar `PRINTER_DEVICE`.
+   Para usar una cola raw de CUPS en su lugar: `PRINTER_MODE=cups` y
+   `PRINTER_QUEUE=<cola>`.
 
 Configuración única en Windows:
 

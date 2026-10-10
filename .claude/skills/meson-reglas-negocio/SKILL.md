@@ -8,8 +8,8 @@ description: Usar al implementar o corregir cálculos de stock, costeo de receta
 Documento completo de referencia: `docs/REGLAS_DE_NEGOCIO.md`. Léelo antes
 de escribir o modificar una fórmula si no lo tienes en contexto.
 
-> Si `docs/` contradice el issue #17 "Estado SISAD" (tablero común) o el
-> código, vale el tablero o el código.
+> Si `docs/` contradice el código o GitHub, vale el código o GitHub. El
+> issue #17 "Estado SISAD" es el índice breve del proyecto.
 
 ## Fórmulas ya definidas — no reinventar
 
