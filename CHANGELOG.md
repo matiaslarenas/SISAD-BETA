@@ -4,6 +4,100 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- 2026-10-10 — Documentación y archivos de contexto al día con `main`:
+  - `CLAUDE.md` nuevo: entrada única para herramientas de IA (comandos,
+    arquitectura, reglas no negociables).
+  - `AI_RULES.md`: la persistencia es el servidor local, no `localStorage`.
+  - `docs/*.md`: host = servidor local Linux; acciones del API,
+    `StateFileError`, flujo de venta por tickets, aviso de stock, compra
+    directa, proveedor habitual, tests y guía de usuario según la
+    interfaz actual.
+  - Skills `meson-backend`, `meson-testing` y `meson-data-reset` al día.
+  - `README.md`: sección "Cómo ejecutar".
+  - `docs/GUIA_DE_DEPLOYMENT.md` §2.6: pasos para limitar el puerto a los
+    equipos autorizados con `ufw` y verificarlo desde un equipo no autorizado.
+  - Comentarios de `server/index.js`, `server/persistence.js`,
+    `src/main.jsx` y `src/context/AppDataContext.jsx`: el servidor ya no
+    es "el computador de escritorio".
+
+### Added
+- 2026-10-10 — CI en GitHub Actions (`.github/workflows/ci.yml`): `npm ci`,
+  `npm test` y `npm run build` en cada PR y en cada push a `main`.
+- 2026-10-10 — `.github/pull_request_template.md` con la lista de
+  verificación y `.github/copilot-instructions.md`, que apunta a
+  `CLAUDE.md`.
+- 2026-10-10 — `CLAUDE.md`: sección "Flujo de trabajo" con las reglas
+  comunes de las sesiones de IA (tablero #17, una rama por tarea, autoría
+  de commits, aprobación por plan, reparto y cierre con destinatario). La
+  regla "no tocar docs" se reemplaza por "cada PR actualiza lo que su
+  cambio vuelve incorrecto".
+
+### Fixed
+- 2026-10-10 — Textos para el usuario: `src/App.jsx` ya no pide revisar
+  "el computador de escritorio" al perder la conexión, y los mensajes de
+  `server/persistence.js` y `scripts/reset-quantities-and-history.js`
+  nombran el botón real del Panel ("Respaldar JSON").
+
+### Removed
+- 2026-10-10 — `PROMPT_CHATBOT.md` (describía la versión previa al
+  servidor), `repomix-output.xml` (volcado del código del 2026-09-13),
+  `.impeccable/`, `.vscode/gemini-mcp/` y
+  `src/restaurant-inventory-dashboard.code-workspace`. Se agregan a
+  `.gitignore`.
+
+## 2026-10-07
+
+### Added
+- **Id de venta asignado por el servidor** (#25, issue #10):
+  `generateSaleId` en `src/state/appState.js` calcula `VTA-n` a partir del
+  mayor id existente. El POS envía una `clientRequestId`
+  (`createClientRequestId`) y `saveTicket` actualiza el ticket existente
+  si la clave se repite, así un reintento no duplica la venta.
+- **Protección del script de reset** (#22, issue #11):
+  `scripts/reset-quantities-and-history.js` solo muestra el plan sin
+  `--confirm`, aborta si hay un servidor escuchando o si falta
+  `app-state.json`, y deja un respaldo verificado antes de guardar.
+  Tests en `tests/resetQuantities.test.js`.
+
+### Fixed
+- **Mesa desactualizada en el POS** (#24, issue #21): si otro equipo cobra
+  o anula la mesa abierta, `POS.jsx` la suelta, avisa y conserva lo
+  ingresado (`getStaleTicketStatus`).
+- **Archivo de estado dañado** (#16): `loadState()` en
+  `server/persistence.js` lanza `StateFileError` sin modificar el archivo
+  y `server/index.js` no arranca, en vez de partir desde la semilla y
+  pisar los datos reales. Tests en `tests/persistence.test.js`.
+
+## 2026-10-06
+
+### Added
+- **Aviso al vender sobre el stock** (#23, issue #15, opción 1): el POS
+  pregunta "¿Agregar igual?" y deja continuar; el stock puede quedar
+  negativo (`getTicketStockWarnings`).
+- **Script para cargar la carta del #8 en una instalación en uso** (#14):
+  `scripts/actualizar-carta-pr8.js` y `scripts/lib/cartaPr8.js`
+  (`--aplicar`, con respaldo previo). Tests en
+  `tests/actualizarCarta.test.js`.
+- **Vista de carpetas por categoría en el POS** y ajustes del catálogo
+  semilla (#8).
+- **Registrar compra recibida** (#12): botón en Compras
+  (`DirectPurchaseModal.jsx`) y acción `purchase/record-direct`
+  (`recordDirectPurchase`), que crea y recibe la orden en un paso.
+- Skill `meson-pos-items` y skills `meson-*` al día (#18).
+
+### Fixed
+- **Ventas confirmadas antes de que responda el servidor** (#6): el POS
+  espera la respuesta de `dispatch` antes de mostrar la venta como hecha.
+- **Reutilizar el id de una venta cerrada** (#7): `saveTicket` rechaza con
+  `DomainError` el id de una venta cobrada o anulada, y el POS muestra el
+  motivo.
+- **Proveedor habitual sobrescrito al recibir** (#20, issue #13): recibir
+  una compra ya no cambia el `supplier` del producto.
+- **`defaultRecipes` indefinido** en `normalizeLoadedState` (#19).
+
+## Antes de 2026-10-06 (sin fecha por entrada)
+
 ### Added
 - **Impresión de tickets en impresora térmica** (`server/printer.js`,
   `POST /api/print-ticket`) — genera el ticket en ESC/POS y lo envía a
@@ -26,15 +120,16 @@ All notable changes to this project will be documented in this file.
   cliente y servidor (antes vivía solo dentro de `AppDataContext.jsx`).
 - Test de regresión en `tests/recipeCalculator.test.js` para conversión
   cruzada de unidades masa↔volumen en `normalizeQuantity`.
-- `.claude/skills/` — tres skills de proyecto (`meson-arquitectura`,
+- `.claude/skills/` — tres skills de proyecto iniciales (`meson-arquitectura`,
   `meson-reglas-negocio`, `meson-testing`) que indexan hacia `docs/`
   para agilizar futuras sesiones de desarrollo.
 - Scripts de npm: `server`, `server:dev`, `start` (build + servidor en
   un solo comando, uso real en el desktop).
-- `scripts/reset-to-empty.js` y `scripts/reset-quantities-and-history.js`
-  — utilidades de un solo uso para limpiar datos de demostración antes
-  de empezar a operar con datos reales (el segundo mantiene el catálogo
-  de productos/recetas/proveedores y solo vacía cantidades e historial).
+- `scripts/reset-quantities-and-history.js` — utilidad de un solo uso
+  para limpiar datos de demostración antes de empezar a operar con datos
+  reales (mantiene el catálogo de productos/recetas/proveedores y solo
+  vacía cantidades e historial). Se mencionaba también
+  `scripts/reset-to-empty.js`, pero ese archivo nunca se versionó.
 - `.claude/skills/meson-data-reset/` — quinto skill de proyecto, con el
   alcance exacto de los scripts de reset y la lección aprendida de
   confirmar explícitamente qué se mantiene y qué se borra antes de

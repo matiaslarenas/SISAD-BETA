@@ -22,8 +22,8 @@ import {
 
 const AppDataContext = createContext(null);
 
-// Cada dispositivo (desktop, tablet, celular) consulta este mismo servidor
-// corriendo en el computador de escritorio — es la única fuente de verdad
+// Cada dispositivo (PC, tablet, celular) consulta este mismo servidor
+// local — es la única fuente de verdad
 // del inventario y las ventas. Ver server/index.js.
 const POLL_INTERVAL_MS = 2000;
 

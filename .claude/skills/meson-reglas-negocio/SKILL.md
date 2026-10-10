@@ -9,7 +9,7 @@ Documento completo de referencia: `docs/REGLAS_DE_NEGOCIO.md`. Léelo antes
 de escribir o modificar una fórmula si no lo tienes en contexto.
 
 > Si `docs/` contradice el issue #17 "Estado SISAD" (tablero común) o el
-> código, vale el tablero o el código: `docs/` no se está actualizando por ahora.
+> código, vale el tablero o el código.
 
 ## Fórmulas ya definidas — no reinventar
 

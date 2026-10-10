@@ -1,6 +1,6 @@
 /**
  * Persistencia del estado en el servidor: reemplaza a localStorage
- * (src/utils/storage.js) usando el sistema de archivos del desktop.
+ * (src/utils/storage.js) usando el sistema de archivos del servidor.
  *
  * Reutiliza createDefaultAppState/normalizeLoadedState de appState.js —
  * el mismo formato de estado y las mismas migraciones que ya existían
@@ -54,7 +54,7 @@ export function loadState(dataDir = DATA_DIR) {
       `No se pudo leer ${stateFile} (${error.message}). ` +
         "El archivo no se modificó. Para recuperar, guarda una copia de él y " +
         "reemplázalo por el último respaldo (el .json descargado con Panel → " +
-        "Respaldar Datos sirve tal cual), y vuelve a iniciar.",
+        "Respaldar JSON sirve tal cual), y vuelve a iniciar.",
       { cause: error }
     );
   }
