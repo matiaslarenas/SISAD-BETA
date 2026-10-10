@@ -19,6 +19,18 @@ All notable changes to this project will be documented in this file.
     `src/main.jsx` y `src/context/AppDataContext.jsx`: el servidor ya no
     es "el computador de escritorio".
 
+### Added
+- 2026-10-10 — CI en GitHub Actions (`.github/workflows/ci.yml`): `npm ci`,
+  `npm test` y `npm run build` en cada PR y en cada push a `main`.
+- 2026-10-10 — `.github/pull_request_template.md` con la lista de
+  verificación y `.github/copilot-instructions.md`, que apunta a
+  `CLAUDE.md`.
+- 2026-10-10 — `CLAUDE.md`: sección "Flujo de trabajo" con las reglas
+  comunes de las sesiones de IA (tablero #17, una rama por tarea, autoría
+  de commits, aprobación por plan, reparto y cierre con destinatario). La
+  regla "no tocar docs" se reemplaza por "cada PR actualiza lo que su
+  cambio vuelve incorrecto".
+
 ### Fixed
 - 2026-10-10 — Textos para el usuario: `src/App.jsx` ya no pide revisar
   "el computador de escritorio" al perder la conexión, y los mensajes de

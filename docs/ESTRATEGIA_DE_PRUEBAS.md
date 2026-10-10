@@ -281,8 +281,9 @@ function createTestState() {
 
 ## 6. Verificaciones antes de integrar
 
-> El repositorio **no tiene CI** (no existe `.github/workflows/`). Estas
-> verificaciones se corren a mano antes de pedir el merge.
+> El CI (`.github/workflows/ci.yml`, GitHub Actions) corre `npm ci`,
+> `npm test` y `npm run build` en cada PR y en cada push a `main`. Igual
+> conviene correrlas a mano antes de subir cambios.
 
 ### 6.1 Verificaciones Pre-Commit
 
