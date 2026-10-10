@@ -10,7 +10,7 @@ Documento completo de referencia: `docs/GUIA_DE_DEPLOYMENT.md` y
 servidor↔cliente).
 
 > Si `docs/` contradice el issue #17 "Estado SISAD" (tablero común) o el
-> código, vale el tablero o el código: `docs/` no se está actualizando por ahora.
+> código, vale el tablero o el código.
 
 ## Qué es y por qué existe
 
@@ -21,8 +21,8 @@ depende de internet.
 
 ## Regla no negociable: sin dependencias externas
 
-`server/index.js` y `server/persistence.js` usan **solo módulos nativos
-de Node** (`http`, `fs`, `path`, `crypto`, `url`). Nunca agregar
+`server/` usa **solo módulos nativos de Node** (`http`, `fs`, `path`,
+`url`, y `child_process` y `os` en `printer.js`). Nunca agregar
 `express`, `ws`, ni ninguna librería de terceros al servidor sin
 consultarlo explícitamente primero — el restaurante puede no tener
 internet disponible en el servidor para hacer `npm install` de algo
@@ -62,8 +62,10 @@ acciones. Si agregas un caso nuevo:
   pero no se puede leer o normalizar, `loadState()` lanza `StateFileError`
   y no modifica el archivo. `server/index.js` informa el error y termina
   sin iniciar con el estado semilla; no se debe recuperar silenciosamente
-  ni renombrar el archivo. Conserva una copia y restaura el respaldo JSON
-  del Panel antes de volver a iniciar. Solo una instalación sin archivo
+  ni renombrar el archivo. Para recuperar: detener el servidor, guardar una
+  copia del archivo dañado y reemplazar `app-state.json` por el último
+  respaldo descargado con Panel → "Respaldar JSON" (`loadState()` acepta
+  ese envoltorio tal cual), y volver a iniciar. Solo una instalación sin archivo
   crea el estado por defecto.
 - **Confundir el estado del cliente con el del servidor**: el cliente
   (`AppDataContext.jsx`) ya no es dueño del estado — solo lo refleja.
@@ -96,6 +98,7 @@ acciones. Si agregas un caso nuevo:
 La impresora térmica se maneja en `server/printer.js`, con
 tests en `tests/printer.test.js`. En `main` solo está implementada para
 Windows: si `process.platform !== "win32"` lanza un error. El soporte
-para Linux, que necesita el B, está en el PR #9 (borrador, pendiente de
-validar en el B). No dar por hecho que la impresión funciona en el B
-hasta que #9 esté mergeado y probado.
+para Linux, que necesita el B, está en el PR #9 (validado en el B el
+2026-10-08, sin mergear), y los tickets solo en ASCII (la impresora no
+imprime tildes ni ñ) en el PR #26, que depende del #9. Una instalación
+desde `main` no imprime en el B hasta que ambos estén mergeados.

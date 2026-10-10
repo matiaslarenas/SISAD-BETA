@@ -9,7 +9,7 @@ Documento completo de referencia: `docs/ESTRATEGIA_DE_PRUEBAS.md`. Léelo si
 necesitas más detalle de cobertura o invariantes.
 
 > Si `docs/` contradice el issue #17 "Estado SISAD" (tablero común) o el
-> código, vale el tablero o el código: `docs/` no se está actualizando por ahora.
+> código, vale el tablero o el código.
 
 ## Stack (no cambiar)
 
@@ -28,6 +28,8 @@ Sin mocks de DOM. Correr con `npm test`.
 | Invariantes matemáticas (idempotencia, reversibilidad, congelamiento de costos) | `tests/invariants.test.js` |
 | Persistencia del servidor (estado corrupto/vacío, instalación nueva, guardado y respaldo exportado) | `tests/persistence.test.js` |
 | Impresión de tickets (`server/printer.js`) | `tests/printer.test.js` |
+| Script de reset (`scripts/reset-quantities-and-history.js`) | `tests/resetQuantities.test.js` |
+| Script de carga de la carta (`scripts/actualizar-carta-pr8.js`, `scripts/lib/cartaPr8.js`) | `tests/actualizarCarta.test.js` |
 
 ## Regla no negociable
 

@@ -44,6 +44,12 @@ Recién con eso confirmado, escribir el script.
 |---|---|---|
 | `reset-quantities-and-history.js` | Catálogo, recetas, proveedores | Movimientos (→ stock en 0), ventas, compras |
 
+Otro script que escribe sobre `app-state.json`, aunque no vacía datos:
+`actualizar-carta-pr8.js` carga la carta del PR #8 en una instalación ya
+iniciada. Sin `--aplicar` solo muestra el plan; con `--aplicar` exige el
+servidor detenido y deja antes una copia
+`app-state.antes-carta-pr8-<fecha>.json`.
+
 `reset-to-empty.js` (vaciar todo) se menciona en `CHANGELOG.md`, pero
 **no existe** en el repo. Si hace falta, se escribe nuevo con el patrón
 de abajo.
