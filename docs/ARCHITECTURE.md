@@ -1,15 +1,15 @@
 # Arquitectura — Sistema Restaurante El Mesón de Los Laureles
 
 > Documento técnico de referencia para desarrolladores y agentes de código.
-> Complementa a `PROMPT_CHATBOT.md` (documentación funcional orientada a IA
-> conversacional) con un detalle estructural del código.
+> Complementa a `CLAUDE.md` (resumen para herramientas de IA) y a las skills
+> `.claude/skills/meson-*` con un detalle estructural del código.
 
 ## 1. Visión general
 
 Aplicación cliente-servidor: un frontend React (Vite) que corre en el
-navegador de cada dispositivo (desktop, tablet, celulares), y un servidor
+navegador de cada dispositivo (PC, tablet, celulares), y un servidor
 Node.js (`server/index.js`, sin dependencias externas) que corre en el
-computador de escritorio del restaurante y es la única fuente de verdad
+servidor local del restaurante (hoy, un equipo con Ubuntu Server) y es la única fuente de verdad
 del estado. Los demás dispositivos se conectan a ese servidor por la red
 WiFi local — ver `docs/GUIA_DE_DEPLOYMENT.md` para el detalle de
 despliegue. Cubre el ciclo completo para
@@ -99,10 +99,10 @@ src/context/AppDataContext.jsx  (React Context, en cada dispositivo)
 
 ### 3.1 Por qué servidor sin dependencias externas
 
-`server/index.js` usa solo módulos nativos de Node (`http`, `fs`,
-`crypto`) — nada de `express`, `ws`, ni ninguna librería de terceros.
+`server/` usa solo módulos nativos de Node (`http`, `fs`, `path`, `url`,
+y `child_process`/`os` para imprimir) — nada de `express`, `ws`, ni ninguna librería de terceros.
 Decisión deliberada: el restaurante no siempre tiene acceso a internet
-en el desktop para hacer `npm install` de dependencias nuevas, y esto
+en el servidor para hacer `npm install` de dependencias nuevas, y esto
 elimina el riesgo de que una actualización de una librería externa rompa
 el servidor. La sincronización entre dispositivos usa **polling** cada
 ~2 segundos en vez de WebSockets, por el mismo motivo (implementar un
@@ -127,7 +127,12 @@ Esta es la lista completa y vigente de `action.type` aceptados por
 —incluyendo un agente externo que hable directo con la API— solo puede
 mutar el estado mandando uno de estos tipos; cualquier otro valor es
 ignorado silenciosamente (el reducer retorna el mismo estado, `default:
-return state`).
+return state`). Si una función de dominio rechaza la acción con
+`DomainError` (por ejemplo, modificar una venta ya cobrada o registrar una
+compra con un producto inexistente), el servidor responde `400` con
+`{ error }` y un mensaje apto para mostrar en la caja; cualquier otro
+error responde `400` con un mensaje genérico. Una acción sin `type`
+responde `400`.
 
 | `action.type` | `payload` | Función en `appState.js` | Wrapper en `AppDataContext` |
 |---|---|---|---|
@@ -142,8 +147,9 @@ return state`).
 | `purchase/create` | `values` | `createPurchaseOrder` | `createPurchase(values)` |
 | `purchase/in-transit` | `{ purchaseId }` | `markPurchaseInTransit` | `setPurchaseInTransit(purchaseId)` |
 | `purchase/receive` | `{ purchaseId, receiptDate, receiptNotes, items }` | `receivePurchaseOrder` | `receivePurchase(payload)` |
+| `purchase/record-direct` | `{ supplier, purchaseDate, notes, items }` (compra ya recibida, sin orden previa) | `recordDirectPurchase` | `recordDirectPurchase(payload)` |
 | `sale/record` | venta completa (ver §2.6 en `MODELO_DE_DATOS.md`) | `recordSale` | `recordSale(payload)` |
-| `sale/save-ticket` | ticket pendiente (mesa/comanda abierta) | `saveTicket` | `saveTicket(payload)` |
+| `sale/save-ticket` | ticket pendiente (mesa/comanda abierta): `{ id?, clientRequestId, tableOrCustomer, paymentMethod, items, notes }` | `saveTicket` | `saveTicket(payload)` |
 | `sale/close-ticket` | `{ saleId, paymentMethod, notes }` | `closeTicket` | `closeTicket(payload)` |
 | `sale/void` | `{ saleId }` | `voidSale` | `voidSale(saleId)` |
 | `waste/record` | `{ productId, quantity, reason, notes, movementDate }` | `recordWaste` | `recordWaste(payload)` |
@@ -196,7 +202,7 @@ Servidor HTTP nativo. Responsabilidades:
   `appDataReducer`, persiste con `saveState()`, y devuelve el nuevo
   estado + revisión.
 - `POST /api/print-ticket` → recibe `{ kind: "kitchen" | "customer", ...venta }`
-  y envía un ticket a la impresora térmica USB del desktop (ver
+  y envía un ticket a la impresora térmica USB del servidor (ver
   `server/printer.js` más abajo). **No es una acción de `dispatch`**: no
   pasa por `appDataReducer` ni muta/persiste el estado — es un efecto
   físico (imprimir) sobre una venta que ya existe.
@@ -211,6 +217,13 @@ formato de estado y mismas migraciones que la versión anterior
 100% client-side. Escritura atómica (archivo temporal + rename) para que
 un corte de luz a mitad de escritura no corrompa `app-state.json`.
 
+Si `app-state.json` no existe, `loadState()` crea el estado por defecto
+(instalación nueva). Si existe pero no se puede leer o normalizar, lanza
+`StateFileError` sin modificar el archivo, y `server/index.js` termina
+con `process.exit(1)`: partir desde la semilla sobrescribiría los datos
+reales en la primera acción. La recuperación está en
+`docs/GUIA_DE_DEPLOYMENT.md` §9.
+
 > ⚠️ Al construir rutas de archivo con `import.meta.url`, usar siempre
 > `fileURLToPath()` antes de pasarlas a `path.join`/`fs`. Usar
 > `new URL(...).pathname` directamente rompe en Windows (produce rutas
@@ -219,13 +232,14 @@ un corte de luz a mitad de escritura no corrompa `app-state.json`.
 
 ### `server/printer.js`
 Impresión de tickets en la impresora térmica USB (58mm, protocolo
-ESC/POS) conectada al desktop, invocado desde `POST /api/print-ticket`.
+ESC/POS) conectada al servidor, invocado desde `POST /api/print-ticket`.
 Sin dependencias externas: arma los bytes ESC/POS a mano
 (`buildKitchenComandaTicket`, `buildCustomerReceiptTicket`) y los manda
 al driver de Windows ya instalado vía un recurso de impresora compartida
 (`copy /b` al share `\\localhost\TICKETS`, configurable con la variable
-de entorno `PRINTER_SHARE`). Solo implementado para `process.platform
-=== "win32"`. Dos tipos de ticket:
+de entorno `PRINTER_SHARE`). En `main` solo está implementado para
+`process.platform === "win32"`; el soporte para Linux está en el PR #9
+y los tickets solo en ASCII en el PR #26 (ambos sin mergear). Dos tipos de ticket:
 - **Comanda de cocina** (`kind: "kitchen"`): ítem y cantidad en letra
   grande, sin precios — la cocina no cobra.
 - **Cuenta del cliente** (`kind: "customer"`): detalle con precios,
@@ -271,7 +285,10 @@ in-place; cada acción retorna un nuevo objeto de estado (spread de
   `addSupplier/updateSupplier/deleteSupplier`,
   `addRecipe/updateRecipe/deleteRecipe`,
   `createPurchaseOrder`, `markPurchaseInTransit`, `receivePurchaseOrder`,
-  `recordSale`, `saveTicket`, `closeTicket`, `voidSale`, `recordWaste`.
+  `recordDirectPurchase`, `recordSale`, `saveTicket`, `closeTicket`,
+  `voidSale`, `recordWaste`. `generateSaleId` asigna el id `VTA-n` a
+  partir del mayor existente (no de `sales.length`), y
+  `getTicketStockWarnings` arma el aviso de vender sobre el stock.
   Ver la tabla completa de acciones (`action.type` ↔ función) más arriba,
   en §3, bajo `src/state/rootReducer.js`.
 - **Motor de alertas**: `getOperationalAlerts(state, referenceDate)`.
@@ -317,6 +334,11 @@ server/
   persistence.js  Persistencia en disco (server/data/app-state.json).
   printer.js      Impresión ESC/POS de comandas y cuentas (ver §3).
   data/           Estado en vivo del servidor. No se versiona (.gitignore).
+scripts/          Utilidades de un solo uso que escriben sobre
+                   app-state.json con el servidor detenido:
+                   reset-quantities-and-history.js (--confirm) y
+                   actualizar-carta-pr8.js (--aplicar). Ver la skill
+                   meson-data-reset.
 src/
   components/     Componentes de presentación reutilizables (tablas, modales,
                    tarjetas de métricas, filtros). Sin lógica de negocio.
@@ -344,20 +366,29 @@ src/
   App.jsx         Layout raíz + rutas (react-router-dom) + AppReady
                    (pantalla de carga mientras conecta con el servidor).
   main.jsx        Bootstrap de React + AppDataProvider.
-tests/            Suite node:test, un archivo por área de dominio.
+tests/            Suite node:test, un archivo por área (ver §8).
 docs/             Este documento y los demás documentos conceptuales.
 ```
 
 ## 5. Flujo: Venta (POS → Inventario → Reportes)
 
+El POS trabaja con tickets (mesas o pedidos abiertos). Al guardar el
+pedido se descuenta el stock; al cobrar solo cambia el estado de la venta.
+`sale/record` (venta cerrada al instante) sigue existiendo en el reducer,
+pero el POS no lo usa.
+
 ```
-Usuario hace clic "Cobrar" en POS.jsx
+Usuario guarda el pedido en POS.jsx (ticket nuevo: sin id, con una
+clientRequestId generada en el cliente)
   ↓
-useAppData().recordSale(payload)
+useAppData().saveTicket(payload)  →  POST /api/dispatch "sale/save-ticket"
   ↓
-dispatch({ type: "sale/record", payload })
+appDataReducer → saveTicket(state, payload)   [appState.js]
   ↓
-appDataReducer → recordSale(state, payload)   [appState.js]
+  0. Si ya existe una venta con esa clientRequestId, es un reintento:
+     se actualiza ese ticket en vez de crear otro. Si no hay id, el
+     servidor asigna uno nuevo con generateSaleId (VTA-n). Un id de una
+     venta ya cobrada o anulada se rechaza con DomainError.
   ↓
   1. buildInventorySnapshot(catalog, movements)   → snapshot actual
   2. normalizeSaleItem() por cada línea del ticket → congela unitCost
@@ -369,15 +400,21 @@ appDataReducer → recordSale(state, payload)   [appState.js]
          → resuelve sub-recetas recursivamente a ingredientes crudos
        normalizeQuantity(...) por producto agregado
          → movimiento MOVEMENT_TYPES.SALE con quantity negativa,
-           source: "pos_sale", reference: saleId
+           source: "pos_pending_ticket", reference: saleId
+     (al editar un ticket, primero se quitan sus movimientos anteriores)
   ↓
-newState = { ...state, sales: [sale, ...state.sales],
-             inventoryMovements: [...state.inventoryMovements, ...newMovements] }
+newState = { ...state, sales (ticket con status "pending"),
+             inventoryMovements: [...sin los del ticket, ...newMovements] }
+  ↓
+POS ubica su ticket en la respuesta por la clientRequestId
+  ↓
+Al cobrar: closeTicket({ saleId, paymentMethod, notes }) → status
+  "completed" y closedAt; no vuelve a tocar el stock
   ↓
 AppDataContext recalcula (useMemo): inventory, alerts, purchaseSuggestions,
   dailySnapshots — todo derivado, nada se recalcula "a mano" en cada página
   ↓
-Reports.jsx / Overview.jsx consumen los datos ya derivados del Context
+Reports.jsx / Overview.tsx consumen los datos ya derivados del Context
 ```
 
 **Anulación (`voidSale`)**: busca los movimientos originales por
@@ -516,9 +553,17 @@ recordSale()                   → movimientos de inventario SIEMPRE contra
   de stock/costo en recepción de compra, planificador y snapshots.
 - `tests/alerts.test.js` — motor de alertas y validación de backups.
 - `tests/waste.test.js` — registro de mermas y validación de stock.
+- `tests/validation.test.js` — validadores de formularios y backups.
+- `tests/printer.test.js` — formato de los tickets ESC/POS.
+- `tests/persistence.test.js` — persistencia del servidor (archivo
+  ilegible, vacío, instalación nueva, guardado).
+- `tests/resetQuantities.test.js` — protecciones del script de reset.
+- `tests/actualizarCarta.test.js` — script de carga de la carta.
 
-Correr: `npm test`. Ningún test depende del DOM ni de React — todo se
-prueba contra las funciones puras de `appState.js`/`recipeCalculator.js`.
+Correr: `npm test`. Ningún test depende del DOM ni de React — se prueba
+contra las funciones puras de `appState.js`/`recipeCalculator.js`, y
+contra `server/persistence.js`, `server/printer.js` y `scripts/` sobre
+directorios temporales.
 
 ## 9. Convenciones para nuevas funcionalidades
 

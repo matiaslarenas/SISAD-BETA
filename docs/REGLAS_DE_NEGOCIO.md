@@ -136,20 +136,51 @@ maxPortions = min(ingredient.onHand / ingredient.quantityPerUnit)
 - Salsa: 500 gr disponible / 100 gr por pizza = 5 porciones
 - **Porciones máximas: 5** (limitado por salsa)
 
-### 4.2 Registro de Venta
+### 4.2 Registro de Venta (tickets)
 
-Al cobrar una venta:
-1. Se calcula el costo de cada receta vendida (con snapshot de inventario).
-2. Se generan movimientos de inventario negativos para cada ingrediente.
-3. Se registra la venta con `totalAmount`, `totalCost` y `totalMargin`.
+El POS trabaja con tickets: una mesa o pedido abierto (`status:
+"pending"`) que después se cobra.
+
+Al guardar un ticket (`saveTicket`):
+1. Se calcula el costo de cada ítem (con snapshot de inventario) y se
+   congela en la venta.
+2. Se generan movimientos de inventario negativos para cada ingrediente
+   (`source: "pos_pending_ticket"`). Es decir, **el stock se descuenta al
+   guardar el pedido, no al cobrar**. Si se edita el ticket, se quitan sus
+   movimientos anteriores y se recalculan con los ítems actuales.
+3. Se registra la venta con `totalAmount` y `totalCost`. El margen no se
+   guarda: se calcula como `totalAmount - totalCost`.
 4. Los movimientos se vinculan a la venta mediante `reference: saleId`.
+5. El id `VTA-n` lo asigna el servidor (`generateSaleId`, a partir del
+   mayor existente). Un ticket nuevo lleva una `clientRequestId`; si llega
+   dos veces (reintento), se actualiza el mismo ticket en vez de duplicar
+   la venta.
 
-### 4.3 Anulación de Venta
+Al cobrar (`closeTicket`) la venta pasa a `"completed"` con `closedAt` y
+el método de pago. No vuelve a tocar el stock. Un ticket ya cobrado o
+anulado no se puede modificar (el servidor responde con error).
+
+### 4.3 Vender sobre el stock disponible
+
+Decisión vigente (issue #15, opción 1): el POS **avisa y deja continuar**.
+Si un plato pide más de lo que hay, se muestra un aviso
+(`getTicketStockWarnings`) y el usuario puede confirmar la venta igual; el
+stock puede quedar negativo. El servidor no rechaza tickets por falta de
+stock. Se revisa cada plato por separado, así que dos platos que comparten
+un ingrediente pueden no alcanzar juntos aunque ninguno dispare el aviso.
+Al editar un ticket, lo que ese ticket ya reservó cuenta como disponible.
+Esta regla se mantiene hasta validar que el stock del servidor sea
+confiable.
+
+### 4.4 Anulación de Venta
 
 Al anular una venta:
 1. Se buscan los movimientos originales por `reference: saleId`.
-2. Se generan movimientos inversos (misma cantidad, signo contrario).
-3. La venta se marca como `status: "voided"` con `voidedAt`.
+2. Se generan movimientos inversos (misma cantidad, signo contrario,
+   `source: "sale_void"`).
+3. La venta se marca como `status: "voided"`. El momento de la anulación
+   no se guarda en la venta, sino en el `timestamp` de los movimientos de
+   reintegro.
 4. El stock post-anulación es matemáticamente idéntico al pre-venta.
 
 ## 5. Compras y Recepciones
@@ -172,13 +203,26 @@ compra no se puede cancelar/eliminar una vez creada, solo avanzar por
 ### 5.2 Recepción de Mercancía
 
 Al recibir una orden de compra:
-1. Se registra la cantidad real recibida.
-2. Se calcula el costo unitario real (totalAmount / quantity).
-3. Se generan movimientos de inventario positivos.
-4. Se actualiza el stock y costo vigente del producto.
-5. La orden pasa a estado `received` con `receivedDate`.
+1. Se registra la cantidad real recibida y el costo unitario de cada
+   ítem (puede diferir del pedido).
+2. Se generan movimientos de inventario positivos
+   (`source: "purchase_receipt"`).
+3. Se actualiza el stock y costo vigente del producto.
+4. **El proveedor habitual del producto no cambia** (issue #13): el
+   proveedor de cada compra queda en la compra. Solo si el producto no
+   tenía proveedor se toma el de la compra.
+5. La orden pasa a estado `received` con `receiptDate`.
 
-### 5.3 Planificador de Compras
+### 5.3 Compra registrada sin orden previa
+
+Para operar se usa "Registrar compra" (decisión: registrar en el sistema
+la compra ya recibida). `recordDirectPurchase` crea la orden y la recibe
+en el mismo paso, con la cantidad y el costo ingresados, así que la compra
+nace en estado `received` y genera los mismos movimientos que una
+recepción normal. Rechaza (con error) un producto que no exista en el
+inventario.
+
+### 5.4 Planificador de Compras
 
 Las sugerencias de compra se calculan así:
 
@@ -188,7 +232,7 @@ deficit = max(0, minStock - (onHand + onOrder)) + safetyMargin
 
 Donde:
 - `onHand`: stock actual
-- `onOrder`: cantidad en órdenes `in_transit`
+- `onOrder`: cantidad en órdenes `in-transit`
 - `safetyMargin`: margen de seguridad (configurable por producto)
 
 **Ejemplo:**
