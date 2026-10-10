@@ -10,7 +10,7 @@
  *   node scripts/reset-quantities-and-history.js
  *   node scripts/reset-quantities-and-history.js --confirm
  *
- * Se recomienda además descargar un respaldo desde el Panel ("Respaldar Datos").
+ * Se recomienda además descargar un respaldo desde el Panel ("Respaldar JSON").
  */
 import {
   copyFileSync,
@@ -127,7 +127,7 @@ export async function runReset(options = {}) {
   if (!confirm) {
     log(
       "\nNo se escribió nada. Para aplicar, detén el servidor y repite con --confirm. " +
-        "Se recomienda descargar antes un respaldo desde el Panel (\"Respaldar Datos\")."
+        "Se recomienda descargar antes un respaldo desde el Panel (\"Respaldar JSON\")."
     );
     return { applied: false, plan };
   }

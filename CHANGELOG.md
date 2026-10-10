@@ -19,6 +19,12 @@ All notable changes to this project will be documented in this file.
     `src/main.jsx` y `src/context/AppDataContext.jsx`: el servidor ya no
     es "el computador de escritorio".
 
+### Fixed
+- 2026-10-10 — Textos para el usuario: `src/App.jsx` ya no pide revisar
+  "el computador de escritorio" al perder la conexión, y los mensajes de
+  `server/persistence.js` y `scripts/reset-quantities-and-history.js`
+  nombran el botón real del Panel ("Respaldar JSON").
+
 ### Removed
 - 2026-10-10 — `PROMPT_CHATBOT.md` (describía la versión previa al
   servidor), `repomix-output.xml` (volcado del código del 2026-09-13),
