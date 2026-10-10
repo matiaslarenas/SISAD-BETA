@@ -16,8 +16,16 @@
  *      ej. "TICKETS".
  *   4. Si el nombre no es "TICKETS", configurar la variable de entorno
  *      PRINTER_SHARE, ej. PRINTER_SHARE=\\localhost\MiImpresora
+ *
+ * En Linux (servidor Ubuntu) hay dos modos, elegidos con PRINTER_MODE:
+ *   - "device" (por defecto fuera de Windows): escribe los bytes directo
+ *     en el dispositivo USB, PRINTER_DEVICE (por defecto /dev/usb/lp0).
+ *     El usuario que corre el servidor debe estar en el grupo "lp".
+ *   - "cups": envía los bytes a una cola raw de CUPS con
+ *     `lp -d $PRINTER_QUEUE -o raw`.
+ * En Windows el modo por defecto es "windows-share" (lo de arriba).
  */
-import { exec } from "node:child_process";
+import { exec, execFile } from "node:child_process";
 import { writeFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -33,6 +41,22 @@ const BOLD_OFF = `${ESC}E\x00`;
 const DOUBLE_ON = `${GS}!\x11`;
 const DOUBLE_OFF = `${GS}!\x00`;
 const CUT = `${GS}V\x00`;
+
+// La XP-P101 arranca en modo chino (GBK): un byte >= 0x80 (é, ñ...) se junta
+// con el siguiente y sale un ideograma (ej. "Débito" -> "D閲ito"). Hasta
+// elegir página de códigos, el texto se manda solo en ASCII: se quitan las
+// tildes y la ñ, y cualquier otro carácter fuera de ASCII queda como "?".
+// Los comandos ESC/POS son todos < 0x80 y pasan intactos.
+export function toTicketAscii(text) {
+  return String(text)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^\x00-\x7f]/g, "?");
+}
+
+function ticketBuffer(parts) {
+  return Buffer.from(toTicketAscii(parts.join("")), "latin1");
+}
 
 // Impresora térmica de 58mm: 32 columnas en fuente normal.
 const LINE_WIDTH = 32;
@@ -93,7 +117,7 @@ export function buildKitchenComandaTicket(sale) {
   parts.push("\n\n\n");
   parts.push(CUT);
 
-  return Buffer.from(parts.join(""), "latin1");
+  return ticketBuffer(parts);
 }
 
 // Cuenta final para el cliente: detalle de productos con precio, total
@@ -137,31 +161,72 @@ export function buildCustomerReceiptTicket(sale) {
   parts.push("\n\n\n");
   parts.push(CUT);
 
-  return Buffer.from(parts.join(""), "latin1");
+  return ticketBuffer(parts);
 }
 
-const PRINTER_SHARE = process.env.PRINTER_SHARE || "\\\\localhost\\TICKETS";
+const DEFAULT_SHARE = "\\\\localhost\\TICKETS";
+const DEFAULT_DEVICE = "/dev/usb/lp0";
 
-export async function printTicketBuffer(buffer) {
-  if (process.platform !== "win32") {
-    throw new Error(
-      "La impresión térmica solo está implementada para Windows (ver server/printer.js)."
-    );
+// Decide cómo y a dónde enviar el ticket según las variables de entorno.
+// Sin PRINTER_MODE, Windows usa el recurso compartido (como hasta ahora)
+// y cualquier otro sistema escribe directo al dispositivo USB.
+export function resolvePrinterTarget(env = process.env, platform = process.platform) {
+  const mode = env.PRINTER_MODE || (platform === "win32" ? "windows-share" : "device");
+
+  if (mode === "windows-share") {
+    if (platform !== "win32") {
+      throw new Error(
+        'PRINTER_MODE "windows-share" solo funciona en Windows. En Linux usa "device" o "cups" (ver server/printer.js).'
+      );
+    }
+    return { mode, share: env.PRINTER_SHARE || DEFAULT_SHARE };
   }
 
-  const tmpPath = path.join(
+  if (mode === "device") {
+    return { mode, device: env.PRINTER_DEVICE || DEFAULT_DEVICE };
+  }
+
+  if (mode === "cups") {
+    if (!env.PRINTER_QUEUE) {
+      throw new Error(
+        'PRINTER_MODE "cups" requiere PRINTER_QUEUE con el nombre de la cola raw de CUPS.'
+      );
+    }
+    return { mode, queue: env.PRINTER_QUEUE };
+  }
+
+  throw new Error(
+    `PRINTER_MODE desconocido: "${mode}". Valores válidos: windows-share, device, cups.`
+  );
+}
+
+const defaultIo = { writeFile, unlink, exec, execFile };
+
+function buildTmpPath() {
+  return path.join(
     tmpdir(),
     `ticket-${Date.now()}-${Math.random().toString(36).slice(2)}.prn`
   );
-  await writeFile(tmpPath, buffer);
+}
 
+async function sendThroughTmpFile(buffer, io, send) {
+  const tmpPath = buildTmpPath();
+  await io.writeFile(tmpPath, buffer);
   try {
-    await new Promise((resolve, reject) => {
-      exec(`copy /b "${tmpPath}" "${PRINTER_SHARE}"`, (error, _stdout, stderr) => {
+    await send(tmpPath);
+  } finally {
+    await io.unlink(tmpPath).catch(() => {});
+  }
+}
+
+function sendToWindowsShare(buffer, share, io) {
+  return sendThroughTmpFile(buffer, io, (tmpPath) =>
+    new Promise((resolve, reject) => {
+      io.exec(`copy /b "${tmpPath}" "${share}"`, (error, _stdout, stderr) => {
         if (error) {
           reject(
             new Error(
-              `No se pudo enviar el ticket a la impresora (${PRINTER_SHARE}). ` +
+              `No se pudo enviar el ticket a la impresora (${share}). ` +
                 `Verifica que esté compartida en Windows con ese nombre (ver server/printer.js). Detalle: ${
                   stderr || error.message
                 }`
@@ -171,8 +236,61 @@ export async function printTicketBuffer(buffer) {
         }
         resolve();
       });
-    });
-  } finally {
-    await unlink(tmpPath).catch(() => {});
+    })
+  );
+}
+
+async function sendToDevice(buffer, device, io) {
+  try {
+    // "r+" no crea el archivo: si la impresora no está conectada se
+    // obtiene ENOENT en vez de escribir el ticket en un archivo normal.
+    await io.writeFile(device, buffer, { flag: "r+" });
+  } catch (error) {
+    let hint = "Verifica que la impresora esté conectada y encendida.";
+    if (error.code === "ENOENT") {
+      hint = "No existe ese dispositivo: revisa la conexión USB y PRINTER_DEVICE.";
+    } else if (error.code === "EACCES" || error.code === "EPERM") {
+      hint = 'Sin permisos: el usuario que corre el servidor debe estar en el grupo "lp".';
+    }
+    throw new Error(
+      `No se pudo enviar el ticket a la impresora (${device}). ${hint} Detalle: ${error.message}`
+    );
   }
+}
+
+function sendToCups(buffer, queue, io) {
+  return sendThroughTmpFile(buffer, io, (tmpPath) =>
+    new Promise((resolve, reject) => {
+      io.execFile("lp", ["-d", queue, "-o", "raw", tmpPath], (error, _stdout, stderr) => {
+        if (error) {
+          reject(
+            new Error(
+              `No se pudo enviar el ticket a la cola de CUPS "${queue}". ` +
+                `Verifica que exista (lpstat -p) y sea raw. Detalle: ${stderr || error.message}`
+            )
+          );
+          return;
+        }
+        resolve();
+      });
+    })
+  );
+}
+
+// Los tickets se envían de a uno: la comanda y la cuenta pueden pedirse
+// casi al mismo tiempo y no deben mezclarse en el dispositivo.
+let printQueue = Promise.resolve();
+
+export function printTicketBuffer(
+  buffer,
+  { env = process.env, platform = process.platform, io = defaultIo } = {}
+) {
+  const job = printQueue.then(() => {
+    const target = resolvePrinterTarget(env, platform);
+    if (target.mode === "windows-share") return sendToWindowsShare(buffer, target.share, io);
+    if (target.mode === "device") return sendToDevice(buffer, target.device, io);
+    return sendToCups(buffer, target.queue, io);
+  });
+  printQueue = job.catch(() => {});
+  return job;
 }

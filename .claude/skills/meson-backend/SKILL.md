@@ -1,6 +1,6 @@
 ---
 name: meson-backend
-description: Usar al modificar server/index.js, server/persistence.js, server/printer.js, src/state/rootReducer.js, o al agregar una acción nueva que deba estar disponible desde tablet/celular (no solo en un dispositivo). Da las convenciones del servidor local del Sistema Restaurante El Mesón de Los Laureles y errores ya conocidos a no repetir.
+description: Usar al modificar server/index.js, server/persistence.js, server/printer.js, src/state/rootReducer.js, o al agregar una acción nueva que deba estar disponible desde tablet/celular (no solo en un dispositivo). Da las convenciones del servidor local y la impresión de tickets del Sistema Restaurante El Mesón de Los Laureles, y errores ya conocidos a no repetir.
 ---
 
 # Servidor local — El Mesón de Los Laureles
@@ -18,6 +18,34 @@ El sistema corre en el computador B del restaurante (Ubuntu Server) como
 servidor local; la tablet y el celular se conectan por WiFi y comparten el
 mismo inventario/ventas casi en tiempo real (polling cada ~2s). No
 depende de internet.
+
+## Impresión de tickets
+
+`server/printer.js` selecciona el destino con `PRINTER_MODE`:
+
+- En Windows, el valor predeterminado es `windows-share`; conserva el
+  envío con `copy /b` a `PRINTER_SHARE` (por defecto
+  `\\localhost\TICKETS`).
+- En Linux, el valor predeterminado es `device`: escribe los bytes del
+  ticket directamente en `PRINTER_DEVICE` (por defecto
+  `/dev/usb/lp0`). Usa apertura `r+`, por lo que no crea un archivo
+  normal si el dispositivo no existe. El usuario del servidor necesita
+  permisos para el dispositivo; el error sugiere revisar el grupo `lp`.
+- En Linux también se puede elegir `cups`: requiere `PRINTER_QUEUE` y
+  manda el archivo temporal como trabajo raw con
+  `lp -d <cola> -o raw` mediante `execFile`.
+
+Los trabajos se procesan en secuencia para evitar que se mezclen
+comandas y cuentas. Las pruebas automatizadas cubren selección de modo,
+envíos simulados, limpieza de temporales y cola; no prueban una impresora
+física. La impresión en el computador B con la Xprinter XP-P101 sigue
+pendiente de validación: comprobar conexión y dispositivo USB, permisos
+del usuario, elegir `device` o `cups`, imprimir comanda y cuenta reales,
+y revisar tildes y `ñ`. El texto de los tickets se manda solo en ASCII
+(`toTicketAscii` quita tildes y `ñ`, y deja `?` en lo demás) porque la
+XP-P101 arranca en modo chino y un byte >= 0x80 sale como ideograma
+(visto el 2026-10-08: "Débito" salió "D閲ito"). No afirmar que la impresora funciona en el B
+hasta completar esas comprobaciones.
 
 ## Regla no negociable: sin dependencias externas
 
@@ -93,12 +121,6 @@ acciones. Si agregas un caso nuevo:
   llega del servidor — no lo calcules en el servidor salvo que haya una
   razón concreta para moverlo ahí.
 
-## Impresión (`server/printer.js`)
-
-La impresora térmica se maneja en `server/printer.js`, con
-tests en `tests/printer.test.js`. En `main` solo está implementada para
-Windows: si `process.platform !== "win32"` lanza un error. El soporte
-para Linux, que necesita el B, está en el PR #9 (validado en el B el
-2026-10-08, sin mergear), y los tickets solo en ASCII (la impresora no
-imprime tildes ni ñ) en el PR #26, que depende del #9. Una instalación
-desde `main` no imprime en el B hasta que ambos estén mergeados.
+Tests de impresión en `tests/printer.test.js`. Los tickets solo en ASCII
+(la impresora no imprime tildes ni ñ) están en el PR #26, que depende de
+este cambio.
