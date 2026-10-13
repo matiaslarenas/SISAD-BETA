@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Docs
+- 2026-10-13 — `CLAUDE.md`, sección "Flujo de trabajo": regla de inicio de
+  tarea (leer el cuerpo vigente del #17 y solo las fuentes necesarias; el
+  revisor de un PR sigue con diff, criterios y evidencia). El #17 pasa a
+  llamarse "Estado SISAD (índice operativo)".
 - 2026-10-10 — Impresión en Linux al día tras el merge de #9 y #26:
   `CLAUDE.md`, skill `meson-backend`, `docs/ARCHITECTURE.md` y
   `docs/GUIA_DE_DEPLOYMENT.md` §2.7 (pasos para Ubuntu). Las skills
