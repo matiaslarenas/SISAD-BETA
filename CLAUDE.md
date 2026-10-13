@@ -67,6 +67,10 @@ Code (VS Code, en el equipo de Matias) y GitHub Copilot. Matias decide y es el
   dependencias y próximos hitos); issues, PR y CI guardan el detalle
   verificable. Se enlaza, no se resume de nuevo. **GitHub manda:** si un
   resumen no coincide con GitHub, vale GitHub.
+- **Inicio de tarea:** antes de una tarea SISAD, leer el cuerpo vigente del
+  #17 y solo las fuentes que esa tarea necesita; los comentarios del #17 no
+  se repasan por defecto. Al revisar un PR, el revisor sigue con el diff, los
+  criterios y la evidencia, sin leer el #17.
 - **Responsable único:** Matias lo elige al aprobar el paquete, por capacidad
   y riesgo. El Coordinador lo propone con una línea de justificación. El
   briefing lleva solo el issue o PR, los criterios, las decisiones vigentes y
