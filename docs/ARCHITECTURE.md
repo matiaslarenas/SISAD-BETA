@@ -314,8 +314,10 @@ esta función.
 ### `src/utils/storage.js`
 **Ya no lo usa la aplicación en producción** (ver nota en el propio
 archivo). Reemplazado por `server/persistence.js`. Se mantiene como
-referencia histórica de la versión 100% client-side y por si hace falta
-migrar un backup muy antiguo.
+referencia histórica de la versión 100% client-side. No sirve para migrar
+archivos de backup: esos se restauran con `normalizeLoadedState`
+(`src/state/appState.js`). Solo lee datos que hayan quedado en el
+`localStorage` de un navegador de esa versión.
 
 ### `src/utils/validation.js`
 Validadores de formularios (producto, proveedor, receta, ingrediente,

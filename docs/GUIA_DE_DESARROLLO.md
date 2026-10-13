@@ -18,7 +18,7 @@
 ```bash
 # Clonar el repositorio
 git clone <url-del-repositorio>
-cd restaurant-inventory-dashboard
+cd SISAD-BETA   # o el nombre de la carpeta que creó git clone
 
 # Instalar dependencias
 npm install

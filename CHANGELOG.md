@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Docs
+- 2026-10-13 — Ajustes tras la revisión de `main` (`6d72cb9`):
+  `docs/GUIA_DE_USUARIO.md` aclara que, una vez configurado el firewall, el
+  equipo debe estar autorizado además de estar en el WiFi (coincide con
+  `docs/GUIA_DE_DEPLOYMENT.md` §2.6); `docs/GUIA_DE_DESARROLLO.md` usa la
+  carpeta que crea `git clone`; `CLAUDE.md` precisa que Gemini no participa
+  del flujo; `docs/ARCHITECTURE.md` corrige para qué sirve
+  `src/utils/storage.js` (no migra archivos de backup).
 - 2026-10-13 — `CLAUDE.md`, sección "Flujo de trabajo": regla de inicio de
   tarea (leer el cuerpo vigente del #17 y solo las fuentes necesarias; el
   revisor de un PR sigue con diff, criterios y evidencia). El #17 pasa a

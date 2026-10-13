@@ -47,7 +47,9 @@ tablet (POS), el celular y otros equipos son clientes por WiFi.
 
 Participan Matias, el Coordinador de proyecto (Claude en claude.ai), Claude
 Code (VS Code, en el equipo de Matias) y GitHub Copilot. Matias decide y es el
-único que hace merge. Gemini no participa.
+único que hace merge. Gemini no participa del flujo: no recibe código, datos del
+local ni tareas del repo. Matias puede usarlo a mano para tareas propias, como
+el calendario.
 
 - **Paquete de aprobación:** cada tarea define objetivo, alcance y áreas
   previstas, criterios de aceptación, riesgo, validación, documentación que
