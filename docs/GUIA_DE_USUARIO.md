@@ -1,8 +1,9 @@
 # Guía de Usuario — Sistema Restaurante El Mesón de Los Laureles
 
 > Manual práctico para el personal del restaurante. El sistema no pide
-> usuario ni contraseña: el equipo debe estar en la red WiFi del local y
-> autorizado por el administrador en el servidor.
+> usuario ni contraseña: el equipo debe estar en la red WiFi del local y,
+> una vez configurado el firewall del servidor, autorizado por el
+> administrador.
 
 ## 1. Primeros Pasos
 
@@ -14,9 +15,10 @@ WiFi** del restaurante — es el que guarda toda la información.
 
 - **En la tablet, el celular o un PC**: conéctate a la misma red WiFi y
   abre el navegador en `http://<IP-del-servidor>:3000` (el administrador te
-  da esta dirección — no cambia salvo que se reconfigure la red). Solo los
-  equipos autorizados pueden entrar. Si un equipo nuevo no carga la página,
-  pide al administrador que lo autorice.
+  da esta dirección — no cambia salvo que se reconfigure la red). Una vez
+  configurado el firewall del servidor, solo entran los equipos autorizados;
+  hasta entonces, cualquier equipo del WiFi puede entrar. Si un equipo nuevo
+  no carga la página, pide al administrador que lo autorice.
 - El sistema carga automáticamente con los datos actuales. Si tarda unos
   segundos en aparecer o dice "Conectando con el servidor local…", es
   normal mientras se establece la conexión.

@@ -6,8 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Docs
 - 2026-10-13 — Ajustes tras la revisión de `main` (`6d72cb9`):
-  `docs/GUIA_DE_USUARIO.md` aclara que el equipo debe estar autorizado en el
-  servidor, además de estar en el WiFi (coincide con
+  `docs/GUIA_DE_USUARIO.md` aclara que, una vez configurado el firewall, el
+  equipo debe estar autorizado además de estar en el WiFi (coincide con
   `docs/GUIA_DE_DEPLOYMENT.md` §2.6); `docs/GUIA_DE_DESARROLLO.md` usa la
   carpeta que crea `git clone`; `CLAUDE.md` precisa que Gemini no participa
   del flujo; `docs/ARCHITECTURE.md` corrige para qué sirve
